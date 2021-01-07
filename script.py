@@ -81,9 +81,7 @@ class Spotify:
             self._user_id = None
 
         self._session = requests.Session()
-        self._session.headers = {
-            "Authorization": "Bearer {}".format(self._token)
-        }
+        self._session.headers = {"Authorization": "Bearer {}".format(self._token)}
 
         if user_token:
             self._user_id = self.get_current_user_id()
@@ -95,13 +93,10 @@ class Spotify:
         for i in range(0, len(track_ids), 100):
             track_uris = [
                 "spotify:track:{}".format(track_id)
-                for track_id in track_ids[i:i+100]
+                for track_id in track_ids[i : i + 100]
             ]
             response = self._session.post(
-                self._post_tracks_href(playlist_id),
-                json={
-                    "uris": track_uris
-                }
+                self._post_tracks_href(playlist_id), json={"uris": track_uris}
             ).json()
             error = response.get("error")
             if error:
@@ -117,15 +112,13 @@ class Spotify:
                 "description": description,
                 "public": True,
                 "collaborative": False,
-            }
+            },
         )
         return response.status_code == 200
 
     def create_playlist(self, name):
         if self._user_id is None:
-            raise Exception(
-                "Creating playlists requires logging in!"
-            )
+            raise Exception("Creating playlists requires logging in!")
 
         response = self._session.post(
             self._create_playlist_href(self._user_id),
@@ -133,18 +126,17 @@ class Spotify:
                 "name": name,
                 "public": True,
                 "collaborative": False,
-            }
+            },
         ).json()
 
         print(response)
-
 
         return Playlist(
             id=response["id"],
             name=response["name"],
             description=None,
             url=self._get_url(response["external_urls"]),
-            tracks=[]
+            tracks=[],
         )
 
     @classmethod
@@ -255,11 +247,7 @@ class Spotify:
         tracks = self._get_tracks(playlist_id)
 
         return Playlist(
-            id=id,
-            url=url,
-            name=name,
-            description=description,
-            tracks=tracks
+            id=id, url=url, name=name, description=description, tracks=tracks
         )
 
     def get_current_user_id(self):
@@ -362,12 +350,11 @@ class Archive:
         )
 
         # Extract only the cumulative playlists
-        with io.BytesIO(r.content) as data, \
-             tarfile.open(name=None, mode="r:gz", fileobj=data) as tar:
+        with io.BytesIO(r.content) as data, tarfile.open(
+            name=None, mode="r:gz", fileobj=data
+        ) as tar:
             to_extract = [
-                member
-                for member in tar
-                if cls._is_cumulative_playlist(member)
+                member for member in tar if cls._is_cumulative_playlist(member)
             ]
             tar.extractall(path=tempdir, members=to_extract)
 
@@ -376,23 +363,17 @@ class Archive:
 
     @classmethod
     def _is_cumulative_playlist(cls, info: tarfile.TarInfo) -> bool:
-        return (
-            info.isfile() and
-            str(cumulative_dir) in info.name
-        )
+        return info.isfile() and str(cumulative_dir) in info.name
+
 
 def publish_playlists(now: datetime.datetime):
     spotify = Spotify(
         client_id=os.getenv("SPOTIFY_CLIENT_ID"),
         client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"),
-        user_token=os.getenv("SPOTIFY_USER_TOKEN")
+        user_token=os.getenv("SPOTIFY_USER_TOKEN"),
     )
 
-    print(
-        "Fetching current playlist archive from Github... ",
-        end="",
-        flush=True
-    )
+    print("Fetching current playlist archive from Github... ", end="", flush=True)
     archive_dir = Archive.fetch_archive()
     print("Done!")
 
@@ -403,10 +384,7 @@ def publish_playlists(now: datetime.datetime):
 
     # Lastly, update README.md
     with open("README.md") as f:
-        readme = [
-            line.strip()
-            for line in f
-        ]
+        readme = [line.strip() for line in f]
 
     index = readme.index("## Playlists")
 
@@ -426,7 +404,7 @@ def publish_playlists(now: datetime.datetime):
 
 
 def export_playlist(playlist_file: Path, spotify: Spotify) -> Optional[Playlist]:
-    print(f"Exporting playlist \"{playlist_file.name}\"")
+    print(f'Exporting playlist "{playlist_file.name}"')
     with playlist_file.open() as f:
         contents = list(f)
 
@@ -438,18 +416,10 @@ def export_playlist(playlist_file: Path, spotify: Spotify) -> Optional[Playlist]
         # TODO: Should the name be unescaped in any way?
         playlist_name, playlist_id = m.groups()
     else:
-        raise Exception(
-            f"Failed to parse playlist header for {playlist_file.name}"
-        )
+        raise Exception(f"Failed to parse playlist header for {playlist_file.name}")
 
-    track_pattern = re.compile(
-        r"\(https://open.spotify.com/track/(.+?)\)"
-    )
-    tracks = {
-        m.group(1)
-        for line in contents
-        if (m := track_pattern.search(line))
-    }
+    track_pattern = re.compile(r"\(https://open.spotify.com/track/(.+?)\)")
+    tracks = {m.group(1) for line in contents if (m := track_pattern.search(line))}
 
     export_path = export_dir / playlist_id
     if export_path.exists():
@@ -468,34 +438,24 @@ def export_playlist(playlist_file: Path, spotify: Spotify) -> Optional[Playlist]
         with export_path.open("w") as f:
             f.write(export_id)
 
-
     # TODO: Improve with more information:
     #       - last updated
     #       - first updated
     #       - link back to archive repo
-    description = "Playlist containing all tracks from {}.".format(
-        playlist_name
-    )
+    description = "Playlist containing all tracks from {}.".format(playlist_name)
     name = "{} (archive)".format(playlist_name)
 
     print(
         "Updating playlist details for: {} (exported as {})... ".format(
-            playlist_id,
-            export_playlist.id
+            playlist_id, export_playlist.id
         ),
         end="",
-        flush=True
+        flush=True,
     )
-    spotify.change_playlist_details(
-        export_playlist.id,
-        name,
-        description
-    )
+    spotify.change_playlist_details(export_playlist.id, name, description)
     print("Done!")
 
-    old_tracks = {
-        t.id for t in export_playlist.tracks
-    }
+    old_tracks = {t.id for t in export_playlist.tracks}
     tracks_to_add = tracks - old_tracks
 
     # TODO: What to do with these?
@@ -504,18 +464,16 @@ def export_playlist(playlist_file: Path, spotify: Spotify) -> Optional[Playlist]
     if tracks_to_add:
         print(
             "Adding {} track(s) to {}... ".format(
-                len(tracks_to_add),
-                export_playlist.id
+                len(tracks_to_add), export_playlist.id
             ),
             end="",
-            flush=True
+            flush=True,
         )
         spotify.add_items(export_playlist.id, list(tracks_to_add))
     else:
         print(
             "No new tracks for {} (exported as {})!".format(
-                playlist_id,
-                export_playlist.id
+                playlist_id, export_playlist.id
             )
         )
 
@@ -580,10 +538,7 @@ def push_updates(now):
     print("Adding new origin")
     # It's ok to print the token, Travis will hide it
     token = os.getenv("GITHUB_ACCESS_TOKEN")
-    url = "https://mackorone-bot:{}@github.com/{}.git".format(
-        token,
-        PUBLISH_REPO
-    )
+    url = "https://mackorone-bot:{}@github.com/{}.git".format(token, PUBLISH_REPO)
     remote_add = run(["git", "remote", "add", "origin", url])
     if remote_add.returncode != 0:
         raise Exception("Failed to add new origin")
@@ -630,7 +585,7 @@ def login(now):
         def do_GET(self):
             request_url = urllib.parse.urlparse(self.path)
             q = urllib.parse.parse_qs(request_url.query)
-            code.append(q['code'][0])
+            code.append(q["code"][0])
 
             self.send_response(HTTPStatus.OK)
             self.end_headers()
@@ -650,10 +605,7 @@ def login(now):
         authorization_code=code,
     )
 
-    print(
-        "Refresh token, store this somewhere safe and use for "
-        "the export feature:"
-    )
+    print("Refresh token, store this somewhere safe and use for " "the export feature:")
     print(refresh_token)
 
 
@@ -665,26 +617,18 @@ def main():
     subparsers = parser.add_subparsers(dest="action")
 
     publish_parser = subparsers.add_parser(
-        "publish",
-        help=(
-            "Fetch and publish playlists and tracks"
-        )
+        "publish", help=("Fetch and publish playlists and tracks")
     )
     publish_parser.add_argument(
-        "--push", "-p",
+        "--push",
+        "-p",
         action="store_true",
-        help="Commit and push updated playlists to Github ({})".format(
-            PUBLISH_REPO
-        )
+        help="Commit and push updated playlists to Github ({})".format(PUBLISH_REPO),
     )
 
     login_parser = subparsers.add_parser(
-        "login",
-        help=(
-            "Obtain a user token through the OAuth flow"
-        )
+        "login", help=("Obtain a user token through the OAuth flow")
     )
-
 
     args = parser.parse_args()
     now = datetime.datetime.now()
