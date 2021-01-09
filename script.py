@@ -531,10 +531,10 @@ def login(now):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Publish archived Spotify playlists back to Spotify!"
+        description="Publish archived playlists back to Spotify!"
     )
 
-    subparsers = parser.add_subparsers(dest="action")
+    subparsers = parser.add_subparsers(dest="action", required=True)
 
     publish_parser = subparsers.add_parser(
         "publish", help=("Fetch and publish playlists and tracks")
@@ -551,7 +551,7 @@ def main():
     elif args.action == "login":
         login(now)
     else:
-        parser.error("No action specified!")
+        raise NotImplementedError()
 
     print("Done")
 
