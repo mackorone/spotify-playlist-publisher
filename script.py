@@ -377,30 +377,8 @@ def publish_playlists(now: datetime.datetime):
     archive_dir = Archive.fetch_archive()
     print("Done!")
 
-    exported = []
     for playlist_file in (archive_dir / cumulative_dir).iterdir():
-        if playlist := export_playlist(playlist_file, spotify):
-            exported.append(playlist)
-
-    # Lastly, update README.md
-    with open("README.md") as f:
-        readme = [line.strip() for line in f]
-
-    index = readme.index("## Playlists")
-
-    readme_lines = [
-        "- [{}]({})".format(
-            playlist.name,
-            playlist.url,
-        )
-        for playlist in sorted(exported, key=lambda pl: pl.name.lower())
-    ]
-
-    lines = (
-        readme[: index + 1] + [""] + sorted(readme_lines, key=lambda line: line.lower())
-    )
-    with open("README.md", "w") as f:
-        f.write("\n".join(lines) + "\n")
+        export_playlist(playlist_file, spotify)
 
 
 def export_playlist(playlist_file: Path, spotify: Spotify) -> Optional[Playlist]:
@@ -491,64 +469,6 @@ def run(args):
     return result
 
 
-def push_updates(now):
-    diff = run(["git", "status", "-s"])
-    has_changes = bool(diff.stdout)
-
-    if not has_changes:
-        print("No changes, not pushing")
-        return
-
-    print("Configuring git")
-
-    config = ["git", "config", "--global"]
-    config_name = run(config + ["user.name", "Mack Ward (Bot Account)"])
-    config_email = run(config + ["user.email", "mackorone.bot@gmail.com"])
-
-    if config_name.returncode != 0:
-        raise Exception("Failed to configure name")
-    if config_email.returncode != 0:
-        raise Exception("Failed to configure email")
-
-    print("Staging changes")
-
-    add = run(["git", "add", "-A"])
-    if add.returncode != 0:
-        raise Exception("Failed to stage changes")
-
-    print("Committing changes")
-
-    build = os.getenv("TRAVIS_BUILD_NUMBER")
-    now_str = now.strftime("%Y-%m-%d %H:%M:%S")
-    message = "[skip ci] Build #{} ({})".format(build, now_str)
-    commit = run(["git", "commit", "-m", message])
-    if commit.returncode != 0:
-        raise Exception("Failed to commit changes")
-
-    print("Rebasing onto master")
-    rebase = run(["git", "rebase", "HEAD", "master"])
-    if commit.returncode != 0:
-        raise Exception("Failed to rebase onto master")
-
-    print("Removing origin")
-    remote_rm = run(["git", "remote", "rm", "origin"])
-    if remote_rm.returncode != 0:
-        raise Exception("Failed to remove origin")
-
-    print("Adding new origin")
-    # It's ok to print the token, Travis will hide it
-    token = os.getenv("GITHUB_ACCESS_TOKEN")
-    url = "https://mackorone-bot:{}@github.com/{}.git".format(token, PUBLISH_REPO)
-    remote_add = run(["git", "remote", "add", "origin", url])
-    if remote_add.returncode != 0:
-        raise Exception("Failed to add new origin")
-
-    print("Pushing changes")
-    push = run(["git", "push", "origin", "master"])
-    if push.returncode != 0:
-        raise Exception("Failed to push changes")
-
-
 def login(now):
     # Login OAuth flow.
     #
@@ -619,13 +539,6 @@ def main():
     publish_parser = subparsers.add_parser(
         "publish", help=("Fetch and publish playlists and tracks")
     )
-    publish_parser.add_argument(
-        "--push",
-        "-p",
-        action="store_true",
-        help="Commit and push updated playlists to Github ({})".format(PUBLISH_REPO),
-    )
-
     login_parser = subparsers.add_parser(
         "login", help=("Obtain a user token through the OAuth flow")
     )
@@ -635,8 +548,6 @@ def main():
 
     if args.action == "publish":
         publish_playlists(now)
-        if args.push:
-            push_updates(now)
     elif args.action == "login":
         login(now)
     else:
