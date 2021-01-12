@@ -5,3 +5,4 @@
     - Date added to index
     - Last updated
     - Link back to archive
+- Update `spotify-playlist-archive` playlist links
