@@ -2,6 +2,9 @@
 
 > Publishing cumulative playlists back to Spotify
 
+- Published playlists: [open.spotify.com/user/w6hfc0hfa4s53j4l44mqn2ppe/playlists](https://open.spotify.com/user/w6hfc0hfa4s53j4l44mqn2ppe/playlists)
+- GitHub archive: [github.com/mackorone/spotify-playlist-archive](https://github.com/mackorone/spotify-playlist-archive)
+
 ## Development
 
 This project uses [`pip-tools`](https://github.com/jazzband/pip-tools) to manage
