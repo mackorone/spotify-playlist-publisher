@@ -268,69 +268,67 @@ class Spotify:
         return response.status_code == 200
 
 
-class Publisher:
-    @classmethod
-    def publish(cls) -> None:
-        playlists_in_github = GitHub.get_playlists()
+def publish() -> None:
+    playlists_in_github = GitHub.get_playlists()
 
-        # Check nonempty to fail fast
-        client_id = os.getenv("SPOTIFY_CLIENT_ID")
-        client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
-        refresh_token = os.getenv("SPOTIFY_REFRESH_TOKEN")
-        assert client_id and client_secret and refresh_token
+    # Check nonempty to fail fast
+    client_id = os.getenv("SPOTIFY_CLIENT_ID")
+    client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
+    refresh_token = os.getenv("SPOTIFY_REFRESH_TOKEN")
+    assert client_id and client_secret and refresh_token
 
-        spotify = Spotify(
-            client_id=client_id,
-            client_secret=client_secret,
-            refresh_token=refresh_token,
+    spotify = Spotify(
+        client_id=client_id,
+        client_secret=client_secret,
+        refresh_token=refresh_token,
+    )
+    playlists_in_spotify = spotify.get_playlists()
+
+    # Key playlists by name for quick retrieval
+    github_playlists = {p.name: p for p in playlists_in_github}
+    spotify_playlists = {p.name: p for p in playlists_in_spotify}
+
+    playlists_to_create = set(github_playlists) - set(spotify_playlists)
+    playlists_to_delete = set(spotify_playlists) - set(github_playlists)
+
+    # Create missing playlists
+    for name in sorted(playlists_to_create):
+        print(f"Creating playlist: {name}")
+        playlist_id = spotify.create_playlist(name)
+        spotify_playlists[name] = SpotifyPlaylist(
+            name=name,
+            playlist_id=playlist_id,
+            description="",
+            track_ids=set(),
         )
-        playlists_in_spotify = spotify.get_playlists()
 
-        # Key playlists by name for quick retrieval
-        github_playlists = {p.name: p for p in playlists_in_github}
-        spotify_playlists = {p.name: p for p in playlists_in_spotify}
+    # Update existing playlists
+    for name, github_playlist in github_playlists.items():
+        github_track_ids = github_playlist.track_ids
 
-        playlists_to_create = set(github_playlists) - set(spotify_playlists)
-        playlists_to_delete = set(spotify_playlists) - set(github_playlists)
+        spotify_playlist = spotify_playlists[name]
+        playlist_id = spotify_playlist.playlist_id
+        spotify_track_ids = spotify_playlist.track_ids
 
-        # Create missing playlists
-        for name in sorted(playlists_to_create):
-            print(f"Creating playlist: {name}")
-            playlist_id = spotify.create_playlist(name)
-            spotify_playlists[name] = SpotifyPlaylist(
-                name=name,
-                playlist_id=playlist_id,
-                description="",
-                track_ids=set(),
-            )
+        tracks_to_add = list(github_track_ids - spotify_track_ids)
+        tracks_to_remove = list(spotify_track_ids - github_track_ids)
 
-        # Update existing playlists
-        for name, github_playlist in github_playlists.items():
-            github_track_ids = github_playlist.track_ids
+        if tracks_to_add:
+            print(f"Adding tracks to playlist: {name}")
+            spotify.add_items(playlist_id, tracks_to_add)
 
-            spotify_playlist = spotify_playlists[name]
-            playlist_id = spotify_playlist.playlist_id
-            spotify_track_ids = spotify_playlist.track_ids
+        if tracks_to_remove:
+            print(f"Removing tracks from playlist: {name}")
+            spotify.remove_items(playlist_id, tracks_to_remove)
 
-            tracks_to_add = list(github_track_ids - spotify_track_ids)
-            tracks_to_remove = list(spotify_track_ids - github_track_ids)
-
-            if tracks_to_add:
-                print(f"Adding tracks to playlist: {name}")
-                spotify.add_items(playlist_id, tracks_to_add)
-
-            if tracks_to_remove:
-                print(f"Removing tracks from playlist: {name}")
-                spotify.remove_items(playlist_id, tracks_to_remove)
-
-        # Remove extra playlists
-        for name in playlists_to_delete:
-            playlist_id = spotify_playlists[name].playlist_id
-            print(f"Unsubscribing from playlist: {name}")
-            spotify.unsubscribe_from_playlist(playlist_id)
+    # Remove extra playlists
+    for name in playlists_to_delete:
+        playlist_id = spotify_playlists[name].playlist_id
+        print(f"Unsubscribing from playlist: {name}")
+        spotify.unsubscribe_from_playlist(playlist_id)
 
 
-def login():
+def login() -> None:
     # Login OAuth flow.
     #
     # 1. Opens the authorize url in the default browser (on Linux).
@@ -408,7 +406,7 @@ def main():
     args = parser.parse_args()
 
     if args.action == "publish":
-        Publisher.publish()
+        publish()
     elif args.action == "login":
         login()
     else:
