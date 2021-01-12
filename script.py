@@ -357,13 +357,14 @@ def login() -> None:
     from http.server import BaseHTTPRequestHandler
     import socketserver
 
-    code = []
+    code = None
 
     class RequestHandler(BaseHTTPRequestHandler):
         def do_GET(self):
+            nonlocal code
             request_url = urllib.parse.urlparse(self.path)
             q = urllib.parse.parse_qs(request_url.query)
-            code.append(q["code"][0])
+            code = q["code"][0]
 
             self.send_response(HTTPStatus.OK)
             self.end_headers()
@@ -373,8 +374,6 @@ def login() -> None:
     httpd = socketserver.TCPServer(("", PORT), RequestHandler)
     httpd.handle_request()
     httpd.server_close()
-
-    code = code[0]
 
     # Request a refresh token given the authorization code.
     refresh_token = Spotify.get_user_refresh_token(
