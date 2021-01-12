@@ -22,5 +22,3 @@ Lastly, use `pip-sync` to install the dev requirements:
 ```
 $ pip-sync requirements/requirements-dev.txt
 ```
-
-## Playlists

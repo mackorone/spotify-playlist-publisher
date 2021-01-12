@@ -1,0 +1,7 @@
+- Handle rate limits
+- Add a `--dryrun` flag
+- Sort songs alphabetically
+- Add playlist description
+    - Date added to index
+    - Last updated
+    - Link back to archive

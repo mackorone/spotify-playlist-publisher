@@ -1,94 +1,164 @@
 #!/usr/bin/env python3
 
 import argparse
-import base64
-import collections
-import datetime
-import io
+import requests
 import os
 import re
-import subprocess
-import tarfile
-import tempfile
 import urllib.parse
-from pathlib import Path
-from typing import Optional
-
-import requests
-
-ARCHIVE_REPO = "mackorone/spotify-playlist-archive"
-PUBLISH_REPO = "mackorone/spotify-playlist-publisher"
+from typing import List, Mapping, NamedTuple, Sequence, Set
 
 
-Playlist = collections.namedtuple(
-    "Playlist",
-    [
-        "id",
-        "url",
-        "name",
-        "description",
-        "tracks",
-    ],
-)
-
-Track = collections.namedtuple(
-    "Track",
-    [
-        "id",
-        "url",
-        "duration_ms",
-        "name",
-        "album",
-        "artists",
-    ],
-)
-
-Album = collections.namedtuple("Album", ["url", "name"])
-
-Artist = collections.namedtuple("Artist", ["url", "name"])
-
-aliases_dir = Path("playlists/aliases")
-plain_dir = Path("playlists/plain")
-pretty_dir = Path("playlists/pretty")
-cumulative_dir = Path("playlists/cumulative")
-export_dir = Path("playlists/export")
+class GitHubPlaylist(NamedTuple):
+    name: str
+    description: str
+    track_ids: Set[str]
 
 
-class InvalidAccessTokenError(Exception):
-    pass
+class SpotifyPlaylist(NamedTuple):
+    name: str
+    playlist_id: str
+    description: str
+    track_ids: Set[str]
 
 
-class InvalidPlaylistError(Exception):
-    pass
+class GitHub:
 
+    ARCHIVE_REPO = "mackorone/spotify-playlist-archive"
+    PUBLISHER_REPO = "mackorone/spotify-playlist-publisher"
+    TRACK_PATTERN = re.compile(r"\(https://open.spotify.com/track/(.+?)\)")
 
-class PrivatePlaylistError(Exception):
-    pass
+    @classmethod
+    def get_playlists(cls) -> List[GitHubPlaylist]:
+        response = requests.get(
+            f"https://api.github.com/repos/{cls.ARCHIVE_REPO}/"
+            "contents/playlists/cumulative"
+        )
+        items = response.json()
+        if not (isinstance(items, list) and len(items) > 0):
+            raise Exception(f"Failed to fetch GitHub playlist names")
+        return [cls._get_playlist(f) for f in items]
+
+    @classmethod
+    def _get_playlist(cls, github_file: Mapping[str, str]) -> GitHubPlaylist:
+        name = github_file["name"][: -len(".md")] + " (Cumulative)"
+        print(f"Fetching playlist from GitHub: {name}")
+        content = requests.get(github_file["download_url"]).text
+        lines = content.splitlines()
+        return GitHubPlaylist(
+            name=name,
+            description=cls._get_description(lines),
+            track_ids=cls._get_track_ids(lines),
+        )
+
+    @classmethod
+    def _get_description(cls, lines: List[str]) -> str:
+        for line in lines:
+            if line.startswith("> "):
+                return line[len("> ") :].strip()
+        raise Exception("Failed to extract description")
+
+    @classmethod
+    def _get_track_ids(cls, lines: List[str]) -> Set[str]:
+        track_ids = set()
+        for line in lines[lines.index("|---|---|---|---|---|---|") + 1 :]:
+            match = cls.TRACK_PATTERN.search(line)
+            if not match:
+                raise Exception(f"Unable to extract track ID: {line}")
+            track_ids.add(match.group(1))
+        return track_ids
 
 
 class Spotify:
 
     BASE_URL = "https://api.spotify.com/v1"
     REDIRECT_URI = "http://localhost:8000"
+    USER_ID = "w6hfc0hfa4s53j4l44mqn2ppe"
 
-    def __init__(self, client_id, client_secret, user_token=None):
-        if user_token:
-            self._token = self._get_user_access_token(
-                client_id, client_secret, user_token
-            )
-        else:
-            self._token = self._get_access_token(client_id, client_secret)
-            self._user_id = None
-
+    def __init__(self, client_id: str, client_secret: str, refresh_token: str) -> None:
+        token = self._get_user_access_token(client_id, client_secret, refresh_token)
         self._session = requests.Session()
-        self._session.headers = {"Authorization": "Bearer {}".format(self._token)}
+        self._session.headers["Authorization"] = f"Bearer {token}"
 
-        if user_token:
-            self._user_id = self.get_current_user_id()
-        else:
-            self._user_id = None
+    def get_playlists(self) -> List[SpotifyPlaylist]:
+        playlist_ids = self._get_playlist_ids()
+        return [self._get_playlist(p) for p in playlist_ids]
 
-    def add_items(self, playlist_id, track_ids):
+    def _get_playlist_ids(self) -> Set[str]:
+        playlist_ids: Set[str] = set()
+        limit = 50
+        total = 1  # just need something nonzero to enter the loop
+        while len(playlist_ids) < total:
+            offset = len(playlist_ids)
+            href = (
+                self.BASE_URL
+                + f"/users/{self.USER_ID}/playlists?limit={limit}&offset={offset}"
+            )
+            response = self._session.get(href).json()
+            error = response.get("error")
+            if error:
+                raise Exception(f"Failed to get playlist IDs: {error}")
+            playlist_ids |= {item["id"] for item in response["items"]}
+            total = response["total"]  # total number of public playlists
+        return playlist_ids
+
+    def _get_playlist(self, playlist_id: str) -> SpotifyPlaylist:
+        href = self.BASE_URL + f"/playlists/{playlist_id}?fields=name,description"
+        response = self._session.get(href).json()
+        error = response.get("error")
+        if error:
+            raise Exception(f"Failed to get playlist: {error}")
+        name = response["name"]
+        description = response["description"]
+        print(f"Fetching playlist from Spotify: {name}")
+        track_ids = self._get_track_ids(playlist_id)
+        return SpotifyPlaylist(
+            name=name,
+            playlist_id=playlist_id,
+            description=description,
+            track_ids=track_ids,
+        )
+
+    def _get_track_ids(self, playlist_id: str) -> Set[str]:
+        track_ids = set()
+        href = (
+            self.BASE_URL
+            + f"/playlists/{playlist_id}/tracks?fields=next,items.track(id)"
+        )
+        while href:
+            response = self._session.get(href).json()
+            error = response.get("error")
+            if error:
+                raise Exception(f"Failed to get track IDs: {error}")
+            for item in response["items"]:
+                track = item["track"]
+                if not track:
+                    continue
+                track_ids.add(track["id"])
+            href = response["next"]
+        return track_ids
+
+    def create_playlist(self, name: str) -> str:
+        href = self.BASE_URL + f"/users/{self.USER_ID}/playlists"
+        response = self._session.post(
+            href,
+            json={
+                "name": name,
+                "public": True,
+                "collaborative": False,
+            },
+        ).json()
+        error = response.get("error")
+        if error:
+            raise Exception(f"Failed to create playlist: {error}")
+        return response["id"]
+
+    def unsubscribe_from_playlist(self, playlist_id: str) -> None:
+        href = self.BASE_URL + f"/playlists/{playlist_id}/followers"
+        response = self._session.delete(href)
+        if response.status_code != 200:
+            raise Exception(f"Failed to unsubscribe from playlist: {response.text}")
+
+    def add_items(self, playlist_id: str, track_ids: Sequence[str]) -> None:
         # Group the tracks in batches of 100, since that's the limit.
         for i in range(0, len(track_ids), 100):
             track_uris = [
@@ -96,102 +166,42 @@ class Spotify:
                 for track_id in track_ids[i : i + 100]
             ]
             response = self._session.post(
-                self._post_tracks_href(playlist_id), json={"uris": track_uris}
+                self.BASE_URL + f"/playlists/{playlist_id}/tracks",
+                json={"uris": track_uris},
             ).json()
             error = response.get("error")
             if error:
-                raise Exception(
-                    "Failed to add tracks to playlist, error: {}".formt(error)
-                )
+                # This is hacky... if there's a bad ID in the archive,
+                # skip it by trying successively smaller batch sizes
+                if error.get("message") == "Payload contains a non-existing ID":
+                    if len(track_ids) > 1:
+                        mid = len(track_ids) // 2
+                        self.add_items(playlist_id, track_ids[:mid])
+                        self.add_items(playlist_id, track_ids[mid:])
+                    else:
+                        print(f"Skipping bad track ID: {track_ids[0]}")
+                else:
+                    raise Exception(f"Failed to add tracks to playlist: {error}")
 
-    def change_playlist_details(self, playlist_id, name, description):
-        response = self._session.put(
-            self._change_playlist_details_href(playlist_id),
-            json={
-                "name": name,
-                "description": description,
-                "public": True,
-                "collaborative": False,
-            },
-        )
-        return response.status_code == 200
-
-    def create_playlist(self, name):
-        if self._user_id is None:
-            raise Exception("Creating playlists requires logging in!")
-
-        response = self._session.post(
-            self._create_playlist_href(self._user_id),
-            json={
-                "name": name,
-                "public": True,
-                "collaborative": False,
-            },
-        ).json()
-
-        print(response)
-
-        return Playlist(
-            id=response["id"],
-            name=response["name"],
-            description=None,
-            url=self._get_url(response["external_urls"]),
-            tracks=[],
-        )
-
-    @classmethod
-    def _get_access_token(cls, client_id, client_secret):
-        joined = "{}:{}".format(client_id, client_secret)
-        encoded = base64.b64encode(joined.encode()).decode()
-
-        response = requests.post(
-            "https://accounts.spotify.com/api/token",
-            data={"grant_type": "client_credentials"},
-            headers={"Authorization": "Basic {}".format(encoded)},
-        ).json()
-
-        error = response.get("error")
-        if error:
-            raise Exception("Failed to get access token: {}".format(error))
-
-        access_token = response.get("access_token")
-        if not access_token:
-            raise Exception("Invalid access token: {}".format(access_token))
-
-        token_type = response.get("token_type")
-        if token_type != "Bearer":
-            raise Exception("Invalid token type: {}".format(token_type))
-
-        return access_token
-
-    @classmethod
-    def _get_user_access_token(cls, client_id, client_secret, refresh_token):
-        response = requests.post(
-            "https://accounts.spotify.com/api/token",
-            data={
-                "grant_type": "refresh_token",
-                "refresh_token": refresh_token,
-            },
-            auth=(client_id, client_secret),
-        ).json()
-
-        error = response.get("error")
-        if error:
-            print(response)
-            raise Exception("Failed to get access token: {}".format(error))
-
-        access_token = response.get("access_token")
-        if not access_token:
-            raise Exception("Invalid access token: {}".format(access_token))
-
-        token_type = response.get("token_type")
-        if token_type != "Bearer":
-            raise Exception("Invalid token type: {}".format(token_type))
-
-        return access_token
+    def remove_items(self, playlist_id: str, track_ids: Sequence[str]) -> None:
+        # Group the tracks in batches of 100, since that's the limit.
+        for i in range(0, len(track_ids), 100):
+            track_uris = [
+                {"uri": "spotify:track:{}".format(track_id)}
+                for track_id in track_ids[i : i + 100]
+            ]
+            response = self._session.delete(
+                self.BASE_URL + f"/playlists/{playlist_id}/tracks",
+                json={"tracks": track_uris},
+            ).json()
+            error = response.get("error")
+            if error:
+                raise Exception(f"Failed to remove tracks from playlist: {error}")
 
     @classmethod
     def get_user_refresh_token(cls, client_id, client_secret, authorization_code):
+        """Called during login flow to get one-time refresh token"""
+
         response = requests.post(
             "https://accounts.spotify.com/api/token",
             data={
@@ -204,7 +214,6 @@ class Spotify:
 
         error = response.get("error")
         if error:
-            print(response)
             raise Exception("Failed to get access token: {}".format(error))
 
         refresh_token = response.get("refresh_token")
@@ -217,264 +226,115 @@ class Spotify:
 
         return refresh_token
 
-    def get_playlist(self, playlist_id, aliases):
-        playlist_href = self._get_playlist_href(playlist_id)
-        response = self._session.get(playlist_href).json()
+    @classmethod
+    def _get_user_access_token(
+        cls, client_id: str, client_secret: str, refresh_token: str
+    ) -> str:
+        """Called during publish flow to get expiring access token"""
+
+        response = requests.post(
+            "https://accounts.spotify.com/api/token",
+            data={
+                "grant_type": "refresh_token",
+                "refresh_token": refresh_token,
+            },
+            auth=(client_id, client_secret),
+        ).json()
 
         error = response.get("error")
         if error:
-            if error.get("status") == 401:
-                raise InvalidAccessTokenError
-            elif error.get("status") == 403:
-                raise PrivatePlaylistError
-            elif error.get("status") == 404:
-                raise InvalidPlaylistError
-            else:
-                raise Exception("Failed to get playlist: {}".format(error))
+            raise Exception("Failed to get access token: {}".format(error))
 
-        url = self._get_url(response["external_urls"])
+        access_token = response.get("access_token")
+        if not access_token:
+            raise Exception("Invalid access token: {}".format(access_token))
 
-        # If the playlist has an alias, use it
-        if playlist_id in aliases:
-            name = aliases[playlist_id]
-        else:
-            name = response["name"]
+        token_type = response.get("token_type")
+        if token_type != "Bearer":
+            raise Exception("Invalid token type: {}".format(token_type))
 
-        # Playlist names can't have "/" so use "\" instead
-        id = response["id"]
-        name = name.replace("/", "\\")
-        description = response["description"]
-        tracks = self._get_tracks(playlist_id)
+        return access_token
 
-        return Playlist(
-            id=id, url=url, name=name, description=description, tracks=tracks
+    def change_playlist_details(self, playlist_id, name, description):
+        response = self._session.put(
+            self.BASE_URL + f"/playlists/{playlist_id}",
+            json={
+                "name": name,
+                "description": description,
+                "public": True,
+                "collaborative": False,
+            },
         )
+        return response.status_code == 200
 
-    def get_current_user_id(self):
-        response = self._session.get(self._get_current_user_href()).json()
-        return response["id"]
 
-    def _get_tracks(self, playlist_id):
-        tracks = []
-        tracks_href = self._get_tracks_href(playlist_id)
-
-        while tracks_href:
-            response = self._session.get(tracks_href).json()
-
-            error = response.get("error")
-            if error:
-                raise Exception("Failed to get tracks: {}".format(error))
-
-            for item in response["items"]:
-                track = item["track"]
-                if not track:
-                    continue
-
-                id_ = track["id"]
-                url = self._get_url(track["external_urls"])
-                duration_ms = track["duration_ms"]
-                name = track["name"]
-                album = Album(
-                    url=self._get_url(track["album"]["external_urls"]),
-                    name=track["album"]["name"],
-                )
-
-                artists = []
-                for artist in track["artists"]:
-                    artists.append(
-                        Artist(
-                            url=self._get_url(artist["external_urls"]),
-                            name=artist["name"],
-                        )
-                    )
-
-                tracks.append(
-                    Track(
-                        id=id_,
-                        url=url,
-                        duration_ms=duration_ms,
-                        name=name,
-                        album=album,
-                        artists=artists,
-                    )
-                )
-
-            tracks_href = response["next"]
-
-        return tracks
-
+class Publisher:
     @classmethod
-    def _get_url(cls, external_urls):
-        return (external_urls or {}).get("spotify")
+    def publish(cls) -> None:
+        playlists_in_github = GitHub.get_playlists()
 
-    @classmethod
-    def _get_current_user_href(cls):
-        return cls.BASE_URL + "/me"
+        # Check nonempty to fail fast
+        client_id = os.getenv("SPOTIFY_CLIENT_ID")
+        client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
+        refresh_token = os.getenv("SPOTIFY_REFRESH_TOKEN")
+        assert client_id and client_secret and refresh_token
 
-    @classmethod
-    def _create_playlist_href(cls, user_id):
-        return cls.BASE_URL + "/users/{}/playlists".format(user_id)
-
-    @classmethod
-    def _change_playlist_details_href(cls, playlist_id):
-        return cls.BASE_URL + "/playlists/{}".format(playlist_id)
-
-    @classmethod
-    def _get_playlist_href(cls, playlist_id):
-        rest = "/playlists/{}?fields=id,external_urls,name,description"
-        template = cls.BASE_URL + rest
-        return template.format(playlist_id)
-
-    @classmethod
-    def _post_tracks_href(cls, playlist_id):
-        return cls.BASE_URL + "/playlists/{}/tracks".format(playlist_id)
-
-    @classmethod
-    def _get_tracks_href(cls, playlist_id):
-        rest = (
-            "/playlists/{}/tracks?fields=next,items.track(id,external_urls,"
-            "duration_ms,name,album(external_urls,name),artists)"
+        spotify = Spotify(
+            client_id=client_id,
+            client_secret=client_secret,
+            refresh_token=refresh_token,
         )
-        template = cls.BASE_URL + rest
-        return template.format(playlist_id)
+        playlists_in_spotify = spotify.get_playlists()
 
+        # Key playlists by name for quick retrieval
+        github_playlists = {p.name: p for p in playlists_in_github}
+        spotify_playlists = {p.name: p for p in playlists_in_spotify}
 
-class Archive:
-    @classmethod
-    def fetch_archive(cls) -> Path:
-        tempdir = tempfile.mkdtemp()
+        playlists_to_create = set(github_playlists) - set(spotify_playlists)
+        playlists_to_delete = set(spotify_playlists) - set(github_playlists)
 
-        # Fetch archive from repo
-        r = requests.get(
-            "https://github.com/{}/archive/master.tar.gz".format(ARCHIVE_REPO)
-        )
-
-        # Extract only the cumulative playlists
-        with io.BytesIO(r.content) as data, tarfile.open(
-            name=None, mode="r:gz", fileobj=data
-        ) as tar:
-            to_extract = [
-                member for member in tar if cls._is_cumulative_playlist(member)
-            ]
-            tar.extractall(path=tempdir, members=to_extract)
-
-        prefix = "spotify-playlist-archive-master"
-        return Path(tempdir) / prefix
-
-    @classmethod
-    def _is_cumulative_playlist(cls, info: tarfile.TarInfo) -> bool:
-        return info.isfile() and str(cumulative_dir) in info.name
-
-
-def publish_playlists(now: datetime.datetime):
-    spotify = Spotify(
-        client_id=os.getenv("SPOTIFY_CLIENT_ID"),
-        client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"),
-        user_token=os.getenv("SPOTIFY_USER_TOKEN"),
-    )
-
-    print("Fetching current playlist archive from Github... ", end="", flush=True)
-    archive_dir = Archive.fetch_archive()
-    print("Done!")
-
-    for playlist_file in (archive_dir / cumulative_dir).iterdir():
-        export_playlist(playlist_file, spotify)
-
-
-def export_playlist(playlist_file: Path, spotify: Spotify) -> Optional[Playlist]:
-    print(f'Exporting playlist "{playlist_file.name}"')
-    with playlist_file.open() as f:
-        contents = list(f)
-
-    if len(contents) < 5:
-        print(f"Playlist {playlist_file.name} is empty, skipping...")
-        return
-
-    if m := re.match(r"^### \[(.+?)\]\(.*/playlist/(.+)\)", contents[2]):
-        # TODO: Should the name be unescaped in any way?
-        playlist_name, playlist_id = m.groups()
-    else:
-        raise Exception(f"Failed to parse playlist header for {playlist_file.name}")
-
-    track_pattern = re.compile(r"\(https://open.spotify.com/track/(.+?)\)")
-    tracks = {m.group(1) for line in contents if (m := track_pattern.search(line))}
-
-    export_path = export_dir / playlist_id
-    if export_path.exists():
-        # Read the exported playlist id from playlists/exported/<id>.
-        with export_path.open() as f:
-            export_id = f.read().strip()
-        export_playlist = spotify.get_playlist(export_id, [])
-    else:
-        # We haven't exported this playlist before, let's create a new
-        # one!
-        export_playlist = spotify.create_playlist(playlist_name)
-
-        # Write the id to playlists/exported/<id>.
-        export_id = export_playlist.id
-        export_dir.mkdir(exist_ok=True, parents=True)
-        with export_path.open("w") as f:
-            f.write(export_id)
-
-    # TODO: Improve with more information:
-    #       - last updated
-    #       - first updated
-    #       - link back to archive repo
-    description = "Playlist containing all tracks from {}.".format(playlist_name)
-    name = "{} (archive)".format(playlist_name)
-
-    print(
-        "Updating playlist details for: {} (exported as {})... ".format(
-            playlist_id, export_playlist.id
-        ),
-        end="",
-        flush=True,
-    )
-    spotify.change_playlist_details(export_playlist.id, name, description)
-    print("Done!")
-
-    old_tracks = {t.id for t in export_playlist.tracks}
-    tracks_to_add = tracks - old_tracks
-
-    # TODO: What to do with these?
-    tracks_to_remove = old_tracks - tracks
-
-    if tracks_to_add:
-        print(
-            "Adding {} track(s) to {}... ".format(
-                len(tracks_to_add), export_playlist.id
-            ),
-            end="",
-            flush=True,
-        )
-        spotify.add_items(export_playlist.id, list(tracks_to_add))
-    else:
-        print(
-            "No new tracks for {} (exported as {})!".format(
-                playlist_id, export_playlist.id
+        # Create missing playlists
+        for name in sorted(playlists_to_create):
+            print(f"Creating playlist: {name}")
+            playlist_id = spotify.create_playlist(name)
+            spotify_playlists[name] = SpotifyPlaylist(
+                name=name,
+                playlist_id=playlist_id,
+                description="",
+                track_ids=set(),
             )
-        )
 
-    return export_playlist
+        # Update existing playlists
+        for name, github_playlist in github_playlists.items():
+            github_track_ids = github_playlist.track_ids
+
+            spotify_playlist = spotify_playlists[name]
+            playlist_id = spotify_playlist.playlist_id
+            spotify_track_ids = spotify_playlist.track_ids
+
+            tracks_to_add = list(github_track_ids - spotify_track_ids)
+            tracks_to_remove = list(spotify_track_ids - github_track_ids)
+
+            if tracks_to_add:
+                print(f"Adding tracks to playlist: {name}")
+                spotify.add_items(playlist_id, tracks_to_add)
+
+            if tracks_to_remove:
+                print(f"Removing tracks from playlist: {name}")
+                spotify.remove_items(playlist_id, tracks_to_remove)
+
+        # Remove extra playlists
+        for name in playlists_to_delete:
+            playlist_id = spotify_playlists[name].playlist_id
+            print(f"Unsubscribing from playlist: {name}")
+            spotify.unsubscribe_from_playlist(playlist_id)
 
 
-def run(args):
-    print("- Running: {}".format(args))
-    result = subprocess.run(
-        args=args,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    print("- Exited with: {}".format(result.returncode))
-    return result
-
-
-def login(now):
+def login():
     # Login OAuth flow.
     #
     # 1. Opens the authorize url in the default browser (on Linux).
-    # 2. Sets up an HTTP server on port 8000 to listen for the
-    #    callback.
+    # 2. Sets up an HTTP server on port 8000 to listen for the callback.
     # 3. Requests a refresh token for the user and prints it.
 
     # Build the target URL
@@ -525,7 +385,7 @@ def login(now):
         authorization_code=code,
     )
 
-    print("Refresh token, store this somewhere safe and use for " "the export feature:")
+    print("Refresh token, store this somewhere safe and use for the export feature:")
     print(refresh_token)
 
 
@@ -537,19 +397,20 @@ def main():
     subparsers = parser.add_subparsers(dest="action", required=True)
 
     publish_parser = subparsers.add_parser(
-        "publish", help=("Fetch and publish playlists and tracks")
+        "publish",
+        help="Fetch and publish playlists and tracks",
     )
     login_parser = subparsers.add_parser(
-        "login", help=("Obtain a user token through the OAuth flow")
+        "login",
+        help="Obtain a refresh token through the OAuth flow",
     )
 
     args = parser.parse_args()
-    now = datetime.datetime.now()
 
     if args.action == "publish":
-        publish_playlists(now)
+        Publisher.publish()
     elif args.action == "login":
-        login(now)
+        login()
     else:
         raise NotImplementedError()
 
