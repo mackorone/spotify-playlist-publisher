@@ -2,3 +2,6 @@ language: python
 python: "3.8"
 install: pip install -r requirements/requirements.txt
 script: python script.py publish
+notifications:
+  email:
+    - spotify.playlist.archive@gmail.com
