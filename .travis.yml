@@ -4,4 +4,4 @@ install: pip install -r requirements/requirements.txt
 script: python script.py publish
 notifications:
   email:
-    - spotify.playlist.archive@gmail.com
+    - mackorone@gmail.com
