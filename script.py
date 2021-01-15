@@ -82,7 +82,7 @@ class Spotify:
 
         def hook(response, *args, **kwargs):
             if response.status_code == 429:
-                print(response.json())
+                print(response.headers["Retry-After"])
 
         self._session.hooks["response"].append(hook)
 
