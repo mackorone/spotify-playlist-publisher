@@ -78,6 +78,13 @@ class Spotify:
         token = self._get_user_access_token(client_id, client_secret, refresh_token)
         self._session = requests.Session()
         self._session.headers["Authorization"] = f"Bearer {token}"
+        self._session.headers["Authorization"] = f"Bearer {token}"
+
+        def hook(response, *args, **kwargs):
+            if response.status_code == 429:
+                print(response.json())
+
+        self._session.hooks["response"].append(hook)
 
     def get_playlists(self) -> List[SpotifyPlaylist]:
         playlist_ids = self._get_playlist_ids()
