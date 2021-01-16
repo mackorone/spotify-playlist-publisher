@@ -231,28 +231,30 @@ class Spotify:
                 raise Exception(f"Failed to remove tracks from playlist: {error}")
 
     @classmethod
-    def get_user_refresh_token(cls, client_id, client_secret, authorization_code):
+    async def get_user_refresh_token(cls, client_id, client_secret, authorization_code):
         """Called during login flow to get one-time refresh token"""
 
-        response = requests.post(
-            "https://accounts.spotify.com/api/token",
-            data={
-                "grant_type": "authorization_code",
-                "code": authorization_code,
-                "redirect_uri": cls.REDIRECT_URI,
-            },
-            auth=(client_id, client_secret),
-        ).json()
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                "https://accounts.spotify.com/api/token",
+                data={
+                    "grant_type": "authorization_code",
+                    "code": authorization_code,
+                    "redirect_uri": cls.REDIRECT_URI,
+                },
+                auth=aiohttp.BasicAuth(client_id, client_secret),
+            ) as response:
+                data = await response.json()
 
-        error = response.get("error")
+        error = data.get("error")
         if error:
             raise Exception("Failed to get access token: {}".format(error))
 
-        refresh_token = response.get("refresh_token")
+        refresh_token = data.get("refresh_token")
         if not refresh_token:
             raise Exception("Invalid refresh token: {}".format(refresh_token))
 
-        token_type = response.get("token_type")
+        token_type = data.get("token_type")
         if token_type != "Bearer":
             raise Exception("Invalid token type: {}".format(token_type))
 
@@ -360,7 +362,7 @@ async def publish() -> None:
         spotify.unsubscribe_from_playlist(playlist_id)
 
 
-def login() -> None:
+async def login() -> None:
     # Login OAuth flow.
     #
     # 1. Opens the authorize url in the default browser (on Linux).
@@ -408,7 +410,7 @@ def login() -> None:
     httpd.server_close()
 
     # Request a refresh token given the authorization code.
-    refresh_token = Spotify.get_user_refresh_token(
+    refresh_token = await Spotify.get_user_refresh_token(
         client_id=os.getenv("SPOTIFY_CLIENT_ID"),
         client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"),
         authorization_code=code,
@@ -418,7 +420,7 @@ def login() -> None:
     print(refresh_token)
 
 
-def main():
+async def main():
     parser = argparse.ArgumentParser(
         description="Publish archived playlists back to Spotify!"
     )
@@ -437,9 +439,9 @@ def main():
     args = parser.parse_args()
 
     if args.action == "publish":
-        asyncio.run(publish())
+        await publish()
     elif args.action == "login":
-        login()
+        await login()
     else:
         raise NotImplementedError()
 
@@ -447,4 +449,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
