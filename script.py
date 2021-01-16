@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
+import aiohttp
 import argparse
+import asyncio
 import requests
 import os
 import re
@@ -29,21 +31,26 @@ class GitHub:
     TRACK_PATTERN = re.compile(r"\(https://open.spotify.com/track/(.+?)\)")
 
     @classmethod
-    def get_playlists(cls) -> List[GitHubPlaylist]:
-        response = requests.get(
-            f"https://api.github.com/repos/{cls.ARCHIVE_REPO}/"
-            "contents/playlists/cumulative"
-        )
-        items = response.json()
-        if not (isinstance(items, list) and len(items) > 0):
-            raise Exception(f"Failed to fetch GitHub playlist names")
-        return [cls._get_playlist(f) for f in items]
+    async def get_playlists(cls) -> List[GitHubPlaylist]:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                f"https://api.github.com/repos/{cls.ARCHIVE_REPO}/"
+                "contents/playlists/cumulative"
+            ) as response:
+                items = await response.json()
+            if not (isinstance(items, list) and len(items) > 0):
+                raise Exception(f"Failed to fetch GitHub playlist names")
+            coros = [cls._get_playlist(session, f) for f in items]
+            return await asyncio.gather(*coros)
 
     @classmethod
-    def _get_playlist(cls, github_file: Mapping[str, str]) -> GitHubPlaylist:
+    async def _get_playlist(
+        cls, session: aiohttp.ClientSession, github_file: Mapping[str, str]
+    ) -> GitHubPlaylist:
         name = github_file["name"][: -len(".md")] + " (Cumulative)"
         print(f"Fetching playlist from GitHub: {name}")
-        content = requests.get(github_file["download_url"]).text
+        async with session.get(github_file["download_url"]) as response:
+            content = await response.text()
         lines = content.splitlines()
         return GitHubPlaylist(
             name=name,
@@ -293,8 +300,8 @@ class Spotify:
         return response.status_code == 200
 
 
-def publish() -> None:
-    playlists_in_github = GitHub.get_playlists()
+async def publish() -> None:
+    playlists_in_github = await GitHub.get_playlists()
 
     # Check nonempty to fail fast
     client_id = os.getenv("SPOTIFY_CLIENT_ID")
@@ -430,7 +437,7 @@ def main():
     args = parser.parse_args()
 
     if args.action == "publish":
-        publish()
+        asyncio.run(publish())
     elif args.action == "login":
         login()
     else:
