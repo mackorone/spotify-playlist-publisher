@@ -4,6 +4,7 @@ import argparse
 import requests
 import os
 import re
+import time
 import urllib.parse
 from typing import List, Mapping, NamedTuple, Sequence, Set
 
@@ -78,13 +79,30 @@ class Spotify:
         token = self._get_user_access_token(client_id, client_secret, refresh_token)
         self._session = requests.Session()
         self._session.headers["Authorization"] = f"Bearer {token}"
-        self._session.headers["Authorization"] = f"Bearer {token}"
+        # Handle rate limiting by retrying
+        self._retry_budget_seconds: int = 30
+        self._session.get = self._make_retryable(self._session.get)  # type: ignore
+        self._session.put = self._make_retryable(self._session.get)  # type: ignore
+        self._session.post = self._make_retryable(self._session.post)  # type: ignore
+        self._session.delete = self._make_retryable(self._session.delete)  # type: ignore
 
-        def hook(response, *args, **kwargs):
-            if response.status_code == 429:
-                print(response.headers["Retry-After"])
+    def _make_retryable(self, func):
+        def wrapper(*args, **kwargs):
+            while True:
+                response = func(*args, **kwargs)
+                if response.status_code != 429:
+                    return response
+                # Add an extra second, just to be safe
+                # https://stackoverflow.com/a/30557896/3176152
+                backoff_seconds = response.headers["Retry-After"] + 1
+                self._retry_budget_seconds -= backoff_seconds
+                if self._retry_budget_seconds <= 0:
+                    raise Exception("Retry budget exceeded")
+                else:
+                    print(f"Rate limited, will retry after {backoff_seconds}s")
+                    time.sleep(backoff_seconds)
 
-        self._session.hooks["response"].append(hook)
+        return wrapper
 
     def get_playlists(self) -> List[SpotifyPlaylist]:
         playlist_ids = self._get_playlist_ids()

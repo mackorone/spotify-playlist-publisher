@@ -1,4 +1,3 @@
-- Handle rate limits
 - Add a `--dryrun` flag
 - Sort songs alphabetically
 - Add playlist description
