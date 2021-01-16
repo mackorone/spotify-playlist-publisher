@@ -3,12 +3,17 @@
 import aiohttp
 import argparse
 import asyncio
+import logging
 import requests
 import os
 import re
 import time
 import urllib.parse
 from typing import List, Mapping, NamedTuple, Sequence, Set
+
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 class GitHubPlaylist(NamedTuple):
@@ -48,7 +53,7 @@ class GitHub:
         cls, session: aiohttp.ClientSession, github_file: Mapping[str, str]
     ) -> GitHubPlaylist:
         name = github_file["name"][: -len(".md")] + " (Cumulative)"
-        print(f"Fetching playlist from GitHub: {name}")
+        logger.info(f"Fetching playlist from GitHub: {name}")
         async with session.get(github_file["download_url"]) as response:
             content = await response.text()
         lines = content.splitlines()
@@ -106,7 +111,7 @@ class Spotify:
                 if self._retry_budget_seconds <= 0:
                     raise Exception("Retry budget exceeded")
                 else:
-                    print(f"Rate limited, will retry after {backoff_seconds}s")
+                    logger.warning(f"Rate limited, will retry after {backoff_seconds}s")
                     time.sleep(backoff_seconds)
 
         return wrapper
@@ -141,7 +146,7 @@ class Spotify:
             raise Exception(f"Failed to get playlist: {error}")
         name = response["name"]
         description = response["description"]
-        print(f"Fetching playlist from Spotify: {name}")
+        logger.info(f"Fetching playlist from Spotify: {name}")
         track_ids = self._get_track_ids(playlist_id)
         return SpotifyPlaylist(
             name=name,
@@ -211,7 +216,7 @@ class Spotify:
                         self.add_items(playlist_id, track_ids[:mid])
                         self.add_items(playlist_id, track_ids[mid:])
                     else:
-                        print(f"Skipping bad track ID: {track_ids[0]}")
+                        logger.warning(f"Skipping bad track ID: {track_ids[0]}")
                 else:
                     raise Exception(f"Failed to add tracks to playlist: {error}")
 
@@ -327,7 +332,7 @@ async def publish() -> None:
 
     # Create missing playlists
     for name in sorted(playlists_to_create):
-        print(f"Creating playlist: {name}")
+        logger.info(f"Creating playlist: {name}")
         playlist_id = spotify.create_playlist(name)
         spotify_playlists[name] = SpotifyPlaylist(
             name=name,
@@ -348,18 +353,20 @@ async def publish() -> None:
         tracks_to_remove = list(spotify_track_ids - github_track_ids)
 
         if tracks_to_add:
-            print(f"Adding tracks to playlist: {name}")
+            logger.info(f"Adding tracks to playlist: {name}")
             spotify.add_items(playlist_id, tracks_to_add)
 
         if tracks_to_remove:
-            print(f"Removing tracks from playlist: {name}")
+            logger.info(f"Removing tracks from playlist: {name}")
             spotify.remove_items(playlist_id, tracks_to_remove)
 
     # Remove extra playlists
     for name in playlists_to_delete:
         playlist_id = spotify_playlists[name].playlist_id
-        print(f"Unsubscribing from playlist: {name}")
+        logger.info(f"Unsubscribing from playlist: {name}")
         spotify.unsubscribe_from_playlist(playlist_id)
+
+    logger.info("Done")
 
 
 async def login() -> None:
@@ -444,8 +451,6 @@ async def main():
         await login()
     else:
         raise NotImplementedError()
-
-    print("Done")
 
 
 if __name__ == "__main__":
