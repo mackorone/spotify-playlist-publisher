@@ -101,7 +101,7 @@ class Spotify:
                     return response
                 # Add an extra second, just to be safe
                 # https://stackoverflow.com/a/30557896/3176152
-                backoff_seconds = response.headers["Retry-After"] + 1
+                backoff_seconds = int(response.headers["Retry-After"]) + 1
                 self._retry_budget_seconds -= backoff_seconds
                 if self._retry_budget_seconds <= 0:
                     raise Exception("Retry budget exceeded")
