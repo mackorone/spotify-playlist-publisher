@@ -1,3 +1,10 @@
+- Script is slow due to Spotify rate limiting:
+    - Email Spotify about bumping the limit
+    - Email Travis CI about more free credits
+    - Move to GitHub Actions for free builds
+    - Create more Spotify apps to avoid limit
+    - Investigate incremental updates
+    - Set timeout for the script
 - Add a `--dryrun` flag
 - Sort songs alphabetically
 - Add playlist description

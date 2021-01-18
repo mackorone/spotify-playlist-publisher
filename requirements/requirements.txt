@@ -10,25 +10,15 @@ async-timeout==3.0.1
     # via aiohttp
 attrs==20.3.0
     # via aiohttp
-certifi==2020.12.5
-    # via requests
 chardet==3.0.4
-    # via
-    #   aiohttp
-    #   requests
+    # via aiohttp
 idna==2.10
-    # via
-    #   requests
-    #   yarl
+    # via yarl
 multidict==5.1.0
     # via
     #   aiohttp
     #   yarl
-requests==2.24.0
-    # via -r requirements/requirements.in
 typing-extensions==3.7.4.3
     # via aiohttp
-urllib3==1.25.11
-    # via requests
 yarl==1.6.3
     # via aiohttp

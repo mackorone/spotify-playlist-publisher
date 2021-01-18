@@ -14,18 +14,12 @@ attrs==20.3.0
     # via aiohttp
 black==20.8b1
     # via -r requirements/requirements-dev.in
-certifi==2020.12.5
-    # via requests
 chardet==3.0.4
-    # via
-    #   aiohttp
-    #   requests
+    # via aiohttp
 click==7.1.2
     # via black
 idna==2.10
-    # via
-    #   requests
-    #   yarl
+    # via yarl
 multidict==5.1.0
     # via
     #   aiohttp
@@ -40,8 +34,6 @@ pathspec==0.8.1
     # via black
 regex==2020.11.13
     # via black
-requests==2.24.0
-    # via -r requirements/requirements.in
 toml==0.10.2
     # via black
 typed-ast==1.4.2
@@ -53,7 +45,5 @@ typing-extensions==3.7.4.3
     #   aiohttp
     #   black
     #   mypy
-urllib3==1.25.11
-    # via requests
 yarl==1.6.3
     # via aiohttp
