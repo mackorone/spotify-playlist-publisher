@@ -5,3 +5,6 @@ script: python script.py publish
 notifications:
   email:
     - mackorone@gmail.com
+branches:
+  only:
+    - main
