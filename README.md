@@ -1,4 +1,4 @@
-# spotify-playlist-publisher [![Build Status](https://travis-ci.com/mackorone/spotify-playlist-publisher.svg?branch=main)](https://travis-ci.com/mackorone/spotify-playlist-publisher)
+# spotify-playlist-publisher [![](https://github.com/mackorone/spotify-playlist-publisher/actions/workflows/main.yml/badge.svg)](https://github.com/mackorone/spotify-playlist-publisher/actions/workflows/main.yml)
 
 > Publishing cumulative playlists back to Spotify
 
