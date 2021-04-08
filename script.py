@@ -320,6 +320,7 @@ class Spotify:
 
 
 async def publish() -> None:
+
     # Check nonempty to fail fast
     client_id = os.getenv("SPOTIFY_CLIENT_ID")
     client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
@@ -331,7 +332,12 @@ async def publish() -> None:
         client_id, client_secret, refresh_token
     )
     spotify = Spotify(access_token)
+    try:
+        await publish_impl(spotify)
+    finally:
+        await spotify.shutdown()
 
+async def publish_impl(spotify) -> None:
     # Fetch all the data
     playlists_in_github = await GitHub.get_playlists()
     playlists_in_spotify = await spotify.get_playlists()
@@ -379,7 +385,6 @@ async def publish() -> None:
         logger.info(f"Unsubscribing from playlist: {name}")
         await spotify.unsubscribe_from_playlist(playlist_id)
 
-    await spotify.shutdown()
     logger.info("Done")
 
 
