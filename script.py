@@ -177,7 +177,7 @@ class Spotify:
         )
         while href:
             async with self._session.get(href) as response:
-                data = await response.json()
+                data = await response.json(content_type=None)
             error = data.get("error")
             if error:
                 raise Exception(f"Failed to get track IDs: {error}")
