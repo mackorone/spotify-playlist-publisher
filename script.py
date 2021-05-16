@@ -103,17 +103,22 @@ class Spotify:
         async def wrapper(*args, **kwargs):
             while True:
                 response = await func(*args, **kwargs)
-                if response.status != 429:
+                if response.status == 429:
+                    # Add an extra second, just to be safe
+                    # https://stackoverflow.com/a/30557896/3176152
+                    backoff_seconds = int(response.headers["Retry-After"]) + 1
+                    reason = "Rate limited"
+                elif response.status == 500:
+                    backoff_seconds = 1
+                    reason = "Server error"
+                else:
                     yield response
                     return
-                # Add an extra second, just to be safe
-                # https://stackoverflow.com/a/30557896/3176152
-                backoff_seconds = int(response.headers["Retry-After"]) + 1
                 self._retry_budget_seconds -= backoff_seconds
                 if self._retry_budget_seconds <= 0:
                     raise Exception("Retry budget exceeded")
                 else:
-                    logger.warning(f"Rate limited, will retry after {backoff_seconds}s")
+                    logger.warning(f"{reason}, will retry after {backoff_seconds}s")
                     await asyncio.sleep(backoff_seconds)
 
         return wrapper
@@ -336,6 +341,7 @@ async def publish() -> None:
         await publish_impl(spotify)
     finally:
         await spotify.shutdown()
+
 
 async def publish_impl(spotify) -> None:
     # Fetch all the data
