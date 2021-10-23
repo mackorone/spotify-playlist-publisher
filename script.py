@@ -52,17 +52,27 @@ class GitHub:
     async def _get_playlist(
         cls, session: aiohttp.ClientSession, github_file: Mapping[str, str]
     ) -> GitHubPlaylist:
-        name = github_file["name"][: -len(".md")] + " (Cumulative)"
-        logger.info(f"Fetching playlist from GitHub: {name}")
+        filename = github_file["name"]
+        logger.info(f"Fetching file from GitHub: {filename}")
         async with session.get(github_file["download_url"]) as response:
             content = await response.text()
-        logger.info(f"Done fetching GitHub playlist: {name}")
+        logger.info(f"Done fetching from GitHub: {filename}")
         lines = content.splitlines()
         return GitHubPlaylist(
-            name=name,
+            name=cls._get_name(lines),
             description=cls._get_description(lines),
             track_ids=cls._get_track_ids(lines),
         )
+
+    @classmethod
+    def _get_name(cls, lines: List[str]) -> str:
+        for line in lines:
+            if line.startswith("### ["):
+                start = line.index("[") + 1
+                end = line.index("]")
+                name = line[start:end]
+                return name + " (Cumulative)"
+        raise Exception("Failed to extract name")
 
     @classmethod
     def _get_description(cls, lines: List[str]) -> str:
