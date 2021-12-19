@@ -229,6 +229,8 @@ class Spotify:
                         await asyncio.gather(*coros)
                     else:
                         logger.warning(f"Skipping bad track ID: {track_ids[0]}")
+                elif error.get("message").startswith("Playlist size limit reached"):
+                    logger.error(f"Playlist is too big, aborting: {playlist_id}")
                 else:
                     raise Exception(f"Failed to add tracks to playlist: {error}")
 
