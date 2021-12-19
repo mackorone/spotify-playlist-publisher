@@ -3,6 +3,7 @@
 import aiohttp
 import argparse
 import asyncio
+import json
 import logging
 import os
 import re
@@ -32,8 +33,6 @@ class SpotifyPlaylist(NamedTuple):
 class GitHub:
 
     ARCHIVE_REPO = "mackorone/spotify-playlist-archive"
-    PUBLISHER_REPO = "mackorone/spotify-playlist-publisher"
-    TRACK_PATTERN = re.compile(r"\(https://open.spotify.com/track/(.+?)\)")
 
     @classmethod
     async def get_playlists(cls) -> List[GitHubPlaylist]:
@@ -45,7 +44,11 @@ class GitHub:
                 items = await response.json()
             if not (isinstance(items, list) and len(items) > 0):
                 raise Exception(f"Failed to fetch GitHub playlist names")
-            coros = [cls._get_playlist(session, f) for f in items]
+            coros = [
+                cls._get_playlist(session, github_file)
+                for github_file in items
+                if github_file["name"].endswith(".json")
+            ]
             return await asyncio.gather(*coros)
 
     @classmethod
@@ -57,39 +60,12 @@ class GitHub:
         async with session.get(github_file["download_url"]) as response:
             content = await response.text()
         logger.info(f"Done fetching from GitHub: {filename}")
-        lines = content.splitlines()
+        playlist = json.loads(content)
         return GitHubPlaylist(
-            name=cls._get_name(lines),
-            description=cls._get_description(lines),
-            track_ids=cls._get_track_ids(lines),
+            name=playlist["name"] + " (Cumulative)",
+            description=playlist["description"],
+            track_ids={track["url"].split("/")[-1] for track in playlist["tracks"]},
         )
-
-    @classmethod
-    def _get_name(cls, lines: List[str]) -> str:
-        for line in lines:
-            if line.startswith("### ["):
-                start = line.index("[") + 1
-                end = line.index("]")
-                name = line[start:end]
-                return name + " (Cumulative)"
-        raise Exception("Failed to extract name")
-
-    @classmethod
-    def _get_description(cls, lines: List[str]) -> str:
-        for line in lines:
-            if line.startswith("> "):
-                return line[len("> ") :].strip()
-        raise Exception("Failed to extract description")
-
-    @classmethod
-    def _get_track_ids(cls, lines: List[str]) -> Set[str]:
-        track_ids = set()
-        for line in lines[lines.index("|---|---|---|---|---|---|") + 1 :]:
-            match = cls.TRACK_PATTERN.search(line)
-            if not match:
-                raise Exception(f"Unable to extract track ID: {line}")
-            track_ids.add(match.group(1))
-        return track_ids
 
 
 class Spotify:
