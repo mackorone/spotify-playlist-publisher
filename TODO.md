@@ -1,3 +1,6 @@
+- Handle GitHub rate limits:
+    - https://docs.github.com/en/rest/reference/rate-limit
+    - https://docs.github.com/en/rest/overview/resources-in-the-rest-api#rate-limiting
 - Script is slow due to Spotify rate limiting
 - Add a `--dryrun` flag
 - Sort songs alphabetically

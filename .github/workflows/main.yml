@@ -23,9 +23,17 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements/requirements.txt
 
+      - name: Checkout mackorone/spotify-playlist-archive
+        uses: actions/checkout@v2
+        with:
+          repository: mackorone/spotify-playlist-archive
+          path: './mackorone/spotify-playlist-archive'
+
       - name: Run script
         env:
           SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
           SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
           SPOTIFY_REFRESH_TOKEN: ${{ secrets.SPOTIFY_REFRESH_TOKEN }}
-        run: python src/script.py publish
+        run: |
+          python src/script.py publish --playlists-dir \
+          ./mackorone/spotify-playlist-archive/playlists

@@ -6,9 +6,10 @@ import base64
 import json
 import logging
 import os
+import pathlib
 import urllib.parse
 from contextlib import asynccontextmanager
-from typing import Any, Mapping, NamedTuple, Sequence, Set
+from typing import Any, List, Mapping, NamedTuple, Optional, Sequence, Set
 
 import aiohttp
 
@@ -34,7 +35,20 @@ class GitHub:
     ARCHIVE_REPO = "mackorone/spotify-playlist-archive"
 
     @classmethod
-    async def get_playlists(cls) -> Sequence[GitHubPlaylist]:
+    async def get_playlists(cls, playlists_dir: Optional[str]) -> List[GitHubPlaylist]:
+        # If possible, use local files
+        if playlists_dir:
+            logger.info(f"Reading playlists from {playlists_dir}")
+            cumulative_dir = pathlib.Path(playlists_dir) / "cumulative"
+            all_files = [str(p) for p in cumulative_dir.iterdir()]
+            json_files = [p for p in all_files if p.endswith(".json")]
+            github_playlists: List[GitHubPlaylist] = []
+            for filename in json_files:
+                with open(filename, "r") as f:
+                    playlist = json.load(f)
+                github_playlists.append(cls._dict_to_obj(playlist))
+            return github_playlists
+
         async with aiohttp.ClientSession() as session:
 
             # Get the SHA for the main branch, root directory
@@ -65,7 +79,7 @@ class GitHub:
                 for item in tree
                 if item["path"].endswith(".json")
             ]
-            return await asyncio.gather(*coros)
+            return list(await asyncio.gather(*coros))
 
     @classmethod
     async def _get_playlist(
@@ -80,6 +94,10 @@ class GitHub:
             raise Exception(f"Unsupported encoding: {encoding}")
         content = base64.b64decode(data["content"])
         playlist = json.loads(content)
+        return cls._dict_to_obj(playlist)
+
+    @classmethod
+    def _dict_to_obj(cls, playlist: Mapping[str, Any]) -> GitHubPlaylist:
         return GitHubPlaylist(
             name=playlist["name"] + " (Cumulative)",
             description=playlist["description"],
@@ -142,7 +160,7 @@ class Spotify:
         # https://docs.aiohttp.org/en/stable/client_advanced.html#graceful-shutdown
         await asyncio.sleep(0)
 
-    async def get_playlists(self) -> Sequence[SpotifyPlaylist]:
+    async def get_playlists(self) -> List[SpotifyPlaylist]:
         playlist_ids = await self._get_playlist_ids()
         coros = [self._get_playlist(p) for p in playlist_ids]
         # TODO: Can't gather due to rate limits
@@ -344,7 +362,7 @@ class Spotify:
         return access_token
 
 
-async def publish() -> None:
+async def publish(playlists_dir: Optional[str]) -> None:
 
     # Check nonempty to fail fast
     client_id = os.getenv("SPOTIFY_CLIENT_ID")
@@ -358,14 +376,14 @@ async def publish() -> None:
     )
     spotify = Spotify(access_token)
     try:
-        await publish_impl(spotify)
+        await publish_impl(spotify, playlists_dir)
     finally:
         await spotify.shutdown()
 
 
-async def publish_impl(spotify: Spotify) -> None:
+async def publish_impl(spotify: Spotify, playlists_dir: Optional[str]) -> None:
     # Fetch all the data
-    playlists_in_github = await GitHub.get_playlists()
+    playlists_in_github = await GitHub.get_playlists(playlists_dir)
     playlists_in_spotify = await spotify.get_playlists()
 
     # Key playlists by name for quick retrieval
@@ -485,7 +503,12 @@ async def main() -> None:
         "publish",
         help="Fetch and publish playlists and tracks",
     )
-    publish_parser.set_defaults(func=lambda args: publish())
+    publish_parser.add_argument(
+        "--playlists-dir",
+        type=str,
+        help="Path to the archive's playlists directory",
+    )
+    publish_parser.set_defaults(func=lambda args: publish(args.playlists_dir))
 
     login_parser = subparsers.add_parser(
         "login",
