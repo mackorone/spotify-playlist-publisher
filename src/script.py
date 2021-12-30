@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
 
-import aiohttp
 import argparse
 import asyncio
 import json
 import logging
 import os
-import re
-import time
 import urllib.parse
 from contextlib import asynccontextmanager
-from typing import List, Mapping, NamedTuple, Sequence, Set
+from typing import Mapping, NamedTuple, Sequence, Set
 
+import aiohttp
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 logger: logging.Logger = logging.getLogger(__name__)
@@ -35,7 +33,7 @@ class GitHub:
     ARCHIVE_REPO = "mackorone/spotify-playlist-archive"
 
     @classmethod
-    async def get_playlists(cls) -> List[GitHubPlaylist]:
+    async def get_playlists(cls) -> Sequence[GitHubPlaylist]:
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 f"https://api.github.com/repos/{cls.ARCHIVE_REPO}/"
@@ -43,7 +41,7 @@ class GitHub:
             ) as response:
                 items = await response.json()
             if not (isinstance(items, list) and len(items) > 0):
-                raise Exception(f"Failed to fetch GitHub playlist names")
+                raise Exception("Failed to fetch GitHub playlist names")
             coros = [
                 cls._get_playlist(session, github_file)
                 for github_file in items
@@ -79,14 +77,14 @@ class Spotify:
         self._session = aiohttp.ClientSession(headers=headers)
         # Handle rate limiting by retrying
         self._retry_budget_seconds: int = 30
-        self._session.get = self._make_retryable(self._session.get)  # type: ignore
-        self._session.put = self._make_retryable(self._session.get)  # type: ignore
-        self._session.post = self._make_retryable(self._session.post)  # type: ignore
-        self._session.delete = self._make_retryable(self._session.delete)  # type: ignore
+        self._session.get = self._make_retryable(self._session.get)
+        self._session.put = self._make_retryable(self._session.get)
+        self._session.post = self._make_retryable(self._session.post)
+        self._session.delete = self._make_retryable(self._session.delete)
 
-    def _make_retryable(self, func):
+    def _make_retryable(self, func):  # pyre-fixme[2,3]
         @asynccontextmanager
-        async def wrapper(*args, **kwargs):
+        async def wrapper(*args, **kwargs):  # pyre-fixme[2,3,53]
             while True:
                 response = await func(*args, **kwargs)
                 if response.status == 429:
@@ -109,13 +107,13 @@ class Spotify:
 
         return wrapper
 
-    async def shutdown(self):
+    async def shutdown(self) -> None:
         await self._session.close()
         # Sleep to allow underlying connections to close
         # https://docs.aiohttp.org/en/stable/client_advanced.html#graceful-shutdown
         await asyncio.sleep(0)
 
-    async def get_playlists(self) -> List[SpotifyPlaylist]:
+    async def get_playlists(self) -> Sequence[SpotifyPlaylist]:
         playlist_ids = await self._get_playlist_ids()
         coros = [self._get_playlist(p) for p in playlist_ids]
         # TODO: Can't gather due to rate limits
@@ -208,7 +206,7 @@ class Spotify:
         for i in range(0, len(track_ids), 100):
             track_uris = [
                 "spotify:track:{}".format(track_id)
-                for track_id in track_ids[i : i + 100]
+                for track_id in track_ids[i : i + 100]  # noqa
             ]
             async with self._session.post(
                 self.BASE_URL + f"/playlists/{playlist_id}/tracks",
@@ -239,7 +237,7 @@ class Spotify:
         for i in range(0, len(track_ids), 100):
             track_uris = [
                 {"uri": "spotify:track:{}".format(track_id)}
-                for track_id in track_ids[i : i + 100]
+                for track_id in track_ids[i : i + 100]  # noqa
             ]
             async with self._session.delete(
                 self.BASE_URL + f"/playlists/{playlist_id}/tracks",
@@ -251,7 +249,12 @@ class Spotify:
                 raise Exception(f"Failed to remove tracks from playlist: {error}")
 
     @classmethod
-    async def get_user_refresh_token(cls, client_id, client_secret, authorization_code):
+    async def get_user_refresh_token(
+        cls,
+        client_id: str,
+        client_secret: str,
+        authorization_code: str,
+    ) -> str:
         """Called during login flow to get one-time refresh token"""
 
         async with aiohttp.ClientSession() as session:
@@ -331,7 +334,7 @@ async def publish() -> None:
         await spotify.shutdown()
 
 
-async def publish_impl(spotify) -> None:
+async def publish_impl(spotify: Spotify) -> None:
     # Fetch all the data
     playlists_in_github = await GitHub.get_playlists()
     playlists_in_spotify = await spotify.get_playlists()
@@ -391,6 +394,8 @@ async def login() -> None:
 
     # Build the target URL
     client_id = os.getenv("SPOTIFY_CLIENT_ID")
+    client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
+    assert client_id and client_secret
     query_params = {
         "client_id": client_id,
         "response_type": "code",
@@ -407,18 +412,18 @@ async def login() -> None:
     os.system("xdg-open '{}'".format(target_url))
 
     # Set up a temporary HTTP server and listen for the callback
+    import socketserver
     from http import HTTPStatus
     from http.server import BaseHTTPRequestHandler
-    import socketserver
 
-    code = None
+    authorization_code: str = ""
 
     class RequestHandler(BaseHTTPRequestHandler):
         def do_GET(self):
-            nonlocal code
+            nonlocal authorization_code
             request_url = urllib.parse.urlparse(self.path)
             q = urllib.parse.parse_qs(request_url.query)
-            code = q["code"][0]
+            authorization_code = q["code"][0]
 
             self.send_response(HTTPStatus.OK)
             self.end_headers()
@@ -429,18 +434,18 @@ async def login() -> None:
     httpd.handle_request()
     httpd.server_close()
 
-    # Request a refresh token given the authorization code.
+    # Request a refresh token for given the authorization code
     refresh_token = await Spotify.get_user_refresh_token(
-        client_id=os.getenv("SPOTIFY_CLIENT_ID"),
-        client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"),
-        authorization_code=code,
+        client_id=client_id,
+        client_secret=client_secret,
+        authorization_code=authorization_code,
     )
 
     print("Refresh token, store this somewhere safe and use for the export feature:")
     print(refresh_token)
 
 
-async def main():
+async def main() -> None:
     parser = argparse.ArgumentParser(
         description="Publish archived playlists back to Spotify!"
     )
@@ -451,19 +456,16 @@ async def main():
         "publish",
         help="Fetch and publish playlists and tracks",
     )
+    publish_parser.set_defaults(func=lambda args: publish())
+
     login_parser = subparsers.add_parser(
         "login",
         help="Obtain a refresh token through the OAuth flow",
     )
+    login_parser.set_defaults(func=lambda args: login())
 
     args = parser.parse_args()
-
-    if args.action == "publish":
-        await publish()
-    elif args.action == "login":
-        await login()
-    else:
-        raise NotImplementedError()
+    await args.func(args)
 
 
 if __name__ == "__main__":
