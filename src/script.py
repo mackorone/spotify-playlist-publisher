@@ -2,12 +2,13 @@
 
 import argparse
 import asyncio
+import base64
 import json
 import logging
 import os
 import urllib.parse
 from contextlib import asynccontextmanager
-from typing import Mapping, NamedTuple, Sequence, Set
+from typing import Any, Mapping, NamedTuple, Sequence, Set
 
 import aiohttp
 
@@ -35,35 +36,63 @@ class GitHub:
     @classmethod
     async def get_playlists(cls) -> Sequence[GitHubPlaylist]:
         async with aiohttp.ClientSession() as session:
-            async with session.get(
-                f"https://api.github.com/repos/{cls.ARCHIVE_REPO}/"
-                "contents/playlists/cumulative"
-            ) as response:
-                items = await response.json()
-            if not (isinstance(items, list) and len(items) > 0):
+
+            # Get the SHA for the main branch, root directory
+            url = f"https://api.github.com/repos/{cls.ARCHIVE_REPO}/branches/main"
+            data = await cls._get(session, url)
+            sha = data["commit"]["sha"]
+
+            # Get the SHA for the playlists/cumulative directory
+            for directory in ["playlists", "cumulative"]:
+                url = f"https://api.github.com/repos/{cls.ARCHIVE_REPO}/git/trees/{sha}"
+                data = await cls._get(session, url)
+                subtrees = [tree for tree in data["tree"] if tree["path"] == directory]
+                count = len(subtrees)
+                if count != 1:
+                    raise Exception(
+                        f"Incorrect number of subtrees for {directory}: {count}"
+                    )
+                sha = subtrees[0]["sha"]
+
+            # Get all files in the cumulative directory
+            url = f"https://api.github.com/repos/{cls.ARCHIVE_REPO}/git/trees/{sha}"
+            data = await cls._get(session, url)
+            tree = data["tree"]
+            if not (isinstance(tree, list) and len(tree) > 0):
                 raise Exception("Failed to fetch GitHub playlist names")
             coros = [
-                cls._get_playlist(session, github_file)
-                for github_file in items
-                if github_file["name"].endswith(".json")
+                cls._get_playlist(session, item)
+                for item in tree
+                if item["path"].endswith(".json")
             ]
             return await asyncio.gather(*coros)
 
     @classmethod
     async def _get_playlist(
-        cls, session: aiohttp.ClientSession, github_file: Mapping[str, str]
+        cls, session: aiohttp.ClientSession, item: Mapping[str, str]
     ) -> GitHubPlaylist:
-        filename = github_file["name"]
+        filename = item["path"]
         logger.info(f"Fetching file from GitHub: {filename}")
-        async with session.get(github_file["download_url"]) as response:
-            content = await response.text()
+        data = await cls._get(session, item["url"])
         logger.info(f"Done fetching from GitHub: {filename}")
+        encoding = data["encoding"]
+        if encoding != "base64":
+            raise Exception(f"Unsupported encoding: {encoding}")
+        content = base64.b64decode(data["content"])
         playlist = json.loads(content)
         return GitHubPlaylist(
             name=playlist["name"] + " (Cumulative)",
             description=playlist["description"],
             track_ids={track["url"].split("/")[-1] for track in playlist["tracks"]},
         )
+
+    @classmethod
+    async def _get(cls, session: aiohttp.ClientSession, url: str) -> Mapping[str, Any]:
+        async with session.get(url) as response:
+            data = await response.json()
+        if response.status == 403:
+            raise Exception(data["message"])
+        return data
 
 
 class Spotify:
