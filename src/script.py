@@ -2,14 +2,13 @@
 
 import argparse
 import asyncio
-import base64
 import json
 import logging
 import os
 import pathlib
 import urllib.parse
 from contextlib import asynccontextmanager
-from typing import Any, List, Mapping, NamedTuple, Optional, Sequence, Set
+from typing import List, NamedTuple, Sequence, Set
 
 import aiohttp
 
@@ -31,86 +30,32 @@ class SpotifyPlaylist(NamedTuple):
 
 
 class GitHub:
-
-    ARCHIVE_REPO = "mackorone/spotify-playlist-archive"
-
     @classmethod
-    async def get_playlists(cls, playlists_dir: Optional[str]) -> List[GitHubPlaylist]:
-        # If possible, use local files
-        if playlists_dir:
-            logger.info(f"Reading playlists from {playlists_dir}")
-            cumulative_dir = pathlib.Path(playlists_dir) / "cumulative"
-            all_files = [str(p) for p in cumulative_dir.iterdir()]
-            json_files = [p for p in all_files if p.endswith(".json")]
-            github_playlists: List[GitHubPlaylist] = []
-            for filename in json_files:
-                with open(filename, "r") as f:
-                    playlist = json.load(f)
-                github_playlists.append(cls._dict_to_obj(playlist))
-            return github_playlists
+    async def get_playlists(cls, playlists_dir: pathlib.Path) -> List[GitHubPlaylist]:
+        logger.info(f"Reading playlists from {playlists_dir}")
 
-        async with aiohttp.ClientSession() as session:
+        json_files: List[pathlib.Path] = []
+        for path in (playlists_dir / "cumulative").iterdir():
+            if str(path).endswith(".json"):
+                json_files.append(path)
 
-            # Get the SHA for the main branch, root directory
-            url = f"https://api.github.com/repos/{cls.ARCHIVE_REPO}/branches/main"
-            data = await cls._get(session, url)
-            sha = data["commit"]["sha"]
+        github_playlists: List[GitHubPlaylist] = []
+        for path in json_files:
+            with open(path, "r") as f:
+                playlist = json.load(f)
+            track_ids: Set[str] = set()
+            for track in playlist["tracks"]:
+                track_id = track["url"].split("/")[-1]
+                track_ids.add(track_id)
+            github_playlists.append(
+                GitHubPlaylist(
+                    name=playlist["name"] + " (Cumulative)",
+                    description=playlist["description"],
+                    track_ids=track_ids,
+                )
+            )
 
-            # Get the SHA for the playlists/cumulative directory
-            for directory in ["playlists", "cumulative"]:
-                url = f"https://api.github.com/repos/{cls.ARCHIVE_REPO}/git/trees/{sha}"
-                data = await cls._get(session, url)
-                subtrees = [tree for tree in data["tree"] if tree["path"] == directory]
-                count = len(subtrees)
-                if count != 1:
-                    raise Exception(
-                        f"Incorrect number of subtrees for {directory}: {count}"
-                    )
-                sha = subtrees[0]["sha"]
-
-            # Get all files in the cumulative directory
-            url = f"https://api.github.com/repos/{cls.ARCHIVE_REPO}/git/trees/{sha}"
-            data = await cls._get(session, url)
-            tree = data["tree"]
-            if not (isinstance(tree, list) and len(tree) > 0):
-                raise Exception("Failed to fetch GitHub playlist names")
-            coros = [
-                cls._get_playlist(session, item)
-                for item in tree
-                if item["path"].endswith(".json")
-            ]
-            return list(await asyncio.gather(*coros))
-
-    @classmethod
-    async def _get_playlist(
-        cls, session: aiohttp.ClientSession, item: Mapping[str, str]
-    ) -> GitHubPlaylist:
-        filename = item["path"]
-        logger.info(f"Fetching file from GitHub: {filename}")
-        data = await cls._get(session, item["url"])
-        logger.info(f"Done fetching from GitHub: {filename}")
-        encoding = data["encoding"]
-        if encoding != "base64":
-            raise Exception(f"Unsupported encoding: {encoding}")
-        content = base64.b64decode(data["content"])
-        playlist = json.loads(content)
-        return cls._dict_to_obj(playlist)
-
-    @classmethod
-    def _dict_to_obj(cls, playlist: Mapping[str, Any]) -> GitHubPlaylist:
-        return GitHubPlaylist(
-            name=playlist["name"] + " (Cumulative)",
-            description=playlist["description"],
-            track_ids={track["url"].split("/")[-1] for track in playlist["tracks"]},
-        )
-
-    @classmethod
-    async def _get(cls, session: aiohttp.ClientSession, url: str) -> Mapping[str, Any]:
-        async with session.get(url) as response:
-            data = await response.json()
-        if response.status == 403:
-            raise Exception(data["message"])
-        return data
+        return github_playlists
 
 
 class Spotify:
@@ -362,7 +307,7 @@ class Spotify:
         return access_token
 
 
-async def publish(playlists_dir: Optional[str]) -> None:
+async def publish(playlists_dir: pathlib.Path) -> None:
 
     # Check nonempty to fail fast
     client_id = os.getenv("SPOTIFY_CLIENT_ID")
@@ -381,7 +326,7 @@ async def publish(playlists_dir: Optional[str]) -> None:
         await spotify.shutdown()
 
 
-async def publish_impl(spotify: Spotify, playlists_dir: Optional[str]) -> None:
+async def publish_impl(spotify: Spotify, playlists_dir: pathlib.Path) -> None:
     # Fetch all the data
     playlists_in_github = await GitHub.get_playlists(playlists_dir)
     playlists_in_spotify = await spotify.get_playlists()
@@ -492,11 +437,15 @@ async def login() -> None:
     print(refresh_token)
 
 
-async def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Publish archived playlists back to Spotify!"
-    )
+def argparse_directory(arg: str) -> pathlib.Path:
+    path = pathlib.Path(arg)
+    if path.is_dir():
+        return path
+    raise argparse.ArgumentTypeError(f"{arg} is not a valid directory")
 
+
+async def main() -> None:
+    parser = argparse.ArgumentParser(description="Publish playlists to Spotify")
     subparsers = parser.add_subparsers(dest="action", required=True)
 
     publish_parser = subparsers.add_parser(
@@ -504,11 +453,12 @@ async def main() -> None:
         help="Fetch and publish playlists and tracks",
     )
     publish_parser.add_argument(
-        "--playlists-dir",
-        type=str,
-        help="Path to the archive's playlists directory",
+        "--playlists",
+        required=True,
+        type=argparse_directory,
+        help="Path to the local playlists directory",
     )
-    publish_parser.set_defaults(func=lambda args: publish(args.playlists_dir))
+    publish_parser.set_defaults(func=lambda args: publish(args.playlists))
 
     login_parser = subparsers.add_parser(
         "login",

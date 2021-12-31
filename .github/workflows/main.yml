@@ -35,5 +35,5 @@ jobs:
           SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
           SPOTIFY_REFRESH_TOKEN: ${{ secrets.SPOTIFY_REFRESH_TOKEN }}
         run: |
-          python src/script.py publish --playlists-dir \
+          python src/script.py publish --playlists \
           ./mackorone/spotify-playlist-archive/playlists
