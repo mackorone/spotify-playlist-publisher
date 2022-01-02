@@ -2,31 +2,60 @@
 
 import argparse
 import asyncio
+import collections
+import dataclasses
+import datetime
 import json
 import logging
 import os
 import pathlib
 import urllib.parse
 from contextlib import asynccontextmanager
-from typing import List, NamedTuple, Sequence, Set
+from typing import AbstractSet, Dict, List, Optional, Sequence, Set
 
 import aiohttp
+
+from committer import Committer
+from environment import Environment
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-class GitHubPlaylist(NamedTuple):
-    name: str
-    description: str
-    track_ids: Set[str]
-
-
-class SpotifyPlaylist(NamedTuple):
-    name: str
+@dataclasses.dataclass(frozen=True)
+class GitHubPlaylist:
+    # Playlist ID of the scraped playlist
     playlist_id: str
+    name: str
     description: str
-    track_ids: Set[str]
+    track_ids: AbstractSet[str]
+
+
+@dataclasses.dataclass(frozen=True)
+class SpotifyPlaylist:
+    # Playlist ID of the published playlist
+    playlist_id: str
+    name: str
+    description: str
+    track_ids: AbstractSet[str]
+
+
+@dataclasses.dataclass(frozen=True)
+class Playlist:
+    scraped_playlist_id: str
+    published_playlist_ids: List[str]
+
+
+@dataclasses.dataclass(frozen=True)
+class Playlists:
+    playlists: List[Playlist]
+
+    def to_json(self) -> str:
+        return json.dumps(
+            dataclasses.asdict(self),
+            indent=2,
+            sort_keys=True,
+        )
 
 
 class GitHub:
@@ -49,6 +78,7 @@ class GitHub:
                 track_ids.add(track_id)
             github_playlists.append(
                 GitHubPlaylist(
+                    playlist_id=playlist["url"].split("/")[-1],
                     name=playlist["name"] + " (Cumulative)",
                     description=playlist["description"],
                     track_ids=track_ids,
@@ -105,22 +135,22 @@ class Spotify:
         # https://docs.aiohttp.org/en/stable/client_advanced.html#graceful-shutdown
         await asyncio.sleep(0)
 
-    async def get_playlists(self) -> List[SpotifyPlaylist]:
-        playlist_ids = await self._get_playlist_ids()
+    async def get_playlists(self, limit: Optional[int] = None) -> List[SpotifyPlaylist]:
+        playlist_ids = await self._get_playlist_ids(limit)
         coros = [self._get_playlist(p) for p in playlist_ids]
         # TODO: Can't gather due to rate limits
         # return await asyncio.gather(*coros)
         return [await c for c in coros]
 
-    async def _get_playlist_ids(self) -> Set[str]:
+    async def _get_playlist_ids(self, limit: Optional[int]) -> Set[str]:
         playlist_ids: Set[str] = set()
-        limit = 50
+        fetch_limit = limit or 50
         total = 1  # just need something nonzero to enter the loop
-        while len(playlist_ids) < total:
+        while len(playlist_ids) < (limit or total):
             offset = len(playlist_ids)
             href = (
                 self.BASE_URL
-                + f"/users/{self.USER_ID}/playlists?limit={limit}&offset={offset}"
+                + f"/users/{self.USER_ID}/playlists?limit={fetch_limit}&offset={offset}"
             )
             async with self._session.get(href) as response:
                 data = await response.json()
@@ -144,8 +174,8 @@ class Spotify:
         track_ids = await self._get_track_ids(playlist_id)
         logger.info(f"Done fetching Spotify playlist: {name}")
         return SpotifyPlaylist(
-            name=name,
             playlist_id=playlist_id,
+            name=name,
             description=description,
             track_ids=track_ids,
         )
@@ -307,12 +337,14 @@ class Spotify:
         return access_token
 
 
-async def publish(playlists_dir: pathlib.Path) -> None:
+async def publish(
+    now: datetime.datetime, playlists_dir: pathlib.Path, prod: bool
+) -> None:
 
     # Check nonempty to fail fast
-    client_id = os.getenv("SPOTIFY_CLIENT_ID")
-    client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
-    refresh_token = os.getenv("SPOTIFY_REFRESH_TOKEN")
+    client_id = Environment.get_env("SPOTIFY_CLIENT_ID")
+    client_secret = Environment.get_env("SPOTIFY_CLIENT_SECRET")
+    refresh_token = Environment.get_env("SPOTIFY_REFRESH_TOKEN")
     assert client_id and client_secret and refresh_token
 
     # Initialize Spotify client
@@ -321,15 +353,29 @@ async def publish(playlists_dir: pathlib.Path) -> None:
     )
     spotify = Spotify(access_token)
     try:
-        await publish_impl(spotify, playlists_dir)
+        await publish_impl(spotify, playlists_dir, prod)
     finally:
         await spotify.shutdown()
+    if prod:
+        Committer.push_updates(now=now)
 
 
-async def publish_impl(spotify: Spotify, playlists_dir: pathlib.Path) -> None:
-    # Fetch all the data
+async def publish_impl(
+    spotify: Spotify, playlists_dir: pathlib.Path, prod: bool
+) -> None:
+    # Always read all GitHub playlists from local storage
     playlists_in_github = await GitHub.get_playlists(playlists_dir)
-    playlists_in_spotify = await spotify.get_playlists()
+
+    # When testing, only fetch one playlist to avoid rate limits
+    if prod:
+        playlists_in_spotify = await spotify.get_playlists()
+    else:
+        playlists_in_spotify = await spotify.get_playlists(limit=1)
+        # Find the corresponding GitHub playlist
+        name = playlists_in_spotify[0].name
+        while playlists_in_github[0].name != name:
+            playlists_in_github = playlists_in_github[1:]
+        playlists_in_github = playlists_in_github[:1]
 
     # Key playlists by name for quick retrieval
     github_playlists = {p.name: p for p in playlists_in_github}
@@ -341,10 +387,14 @@ async def publish_impl(spotify: Spotify, playlists_dir: pathlib.Path) -> None:
     # Create missing playlists
     for name in sorted(playlists_to_create):
         logger.info(f"Creating playlist: {name}")
-        playlist_id = await spotify.create_playlist(name)
+        if prod:
+            playlist_id = await spotify.create_playlist(name)
+        else:
+            # When testing, just use a fake playlist ID
+            playlist_id = f"playlist_id:{name}"
         spotify_playlists[name] = SpotifyPlaylist(
-            name=name,
             playlist_id=playlist_id,
+            name=name,
             description="",
             track_ids=set(),
         )
@@ -362,19 +412,40 @@ async def publish_impl(spotify: Spotify, playlists_dir: pathlib.Path) -> None:
 
         if tracks_to_add:
             logger.info(f"Adding tracks to playlist: {name}")
-            await spotify.add_items(playlist_id, tracks_to_add)
+            if prod:
+                await spotify.add_items(playlist_id, tracks_to_add)
 
         if tracks_to_remove:
             logger.info(f"Removing tracks from playlist: {name}")
-            await spotify.remove_items(playlist_id, tracks_to_remove)
+            if prod:
+                await spotify.remove_items(playlist_id, tracks_to_remove)
 
     # Remove extra playlists
     for name in playlists_to_delete:
         playlist_id = spotify_playlists[name].playlist_id
         logger.info(f"Unsubscribing from playlist: {name}")
-        await spotify.unsubscribe_from_playlist(playlist_id)
+        if prod:
+            await spotify.unsubscribe_from_playlist(playlist_id)
 
-    logger.info("Done")
+    # Dump JSON
+    scraped_to_published: Dict[str, List[str]] = collections.defaultdict(list)
+    for name, github_playlist in github_playlists.items():
+        scraped_to_published[github_playlist.playlist_id].append(
+            spotify_playlists[name].playlist_id
+        )
+    playlists = Playlists(
+        playlists=[
+            Playlist(
+                scraped_playlist_id=scraped_id,
+                published_playlist_ids=published_ids,
+            )
+            for scraped_id, published_ids in scraped_to_published.items()
+        ]
+    )
+    repo_dir = Environment.get_repo_dir()
+    json_path = repo_dir / "playlists.json"
+    with open(json_path, "w") as f:
+        f.write(playlists.to_json())
 
 
 async def login() -> None:
@@ -385,8 +456,8 @@ async def login() -> None:
     # 3. Requests a refresh token for the user and prints it.
 
     # Build the target URL
-    client_id = os.getenv("SPOTIFY_CLIENT_ID")
-    client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
+    client_id = Environment.get_env("SPOTIFY_CLIENT_ID")
+    client_secret = Environment.get_env("SPOTIFY_CLIENT_SECRET")
     assert client_id and client_secret
     query_params = {
         "client_id": client_id,
@@ -445,6 +516,7 @@ def argparse_directory(arg: str) -> pathlib.Path:
 
 
 async def main() -> None:
+    now = datetime.datetime.now()
     parser = argparse.ArgumentParser(description="Publish playlists to Spotify")
     subparsers = parser.add_subparsers(dest="action", required=True)
 
@@ -458,7 +530,14 @@ async def main() -> None:
         type=argparse_directory,
         help="Path to the local playlists directory",
     )
-    publish_parser.set_defaults(func=lambda args: publish(args.playlists))
+    publish_parser.add_argument(
+        "--prod",
+        action="store_true",
+        help="Actually publish changes to Spotify",
+    )
+    publish_parser.set_defaults(
+        func=lambda args: publish(now, args.playlists, args.prod)
+    )
 
     login_parser = subparsers.add_parser(
         "login",

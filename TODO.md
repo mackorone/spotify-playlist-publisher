@@ -1,5 +1,4 @@
 - Script is slow due to Spotify rate limiting
-- Add a `--dryrun` flag
 - Sort songs alphabetically
 - Add playlist description
     - Date added to index
