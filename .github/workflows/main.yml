@@ -11,10 +11,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
 
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v3
         with:
           python-version: 3.8
 
@@ -24,7 +26,7 @@ jobs:
           pip install -r requirements/requirements.txt
 
       - name: Checkout mackorone/spotify-playlist-archive
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           repository: mackorone/spotify-playlist-archive
           path: './mackorone/spotify-playlist-archive'
