@@ -4,7 +4,6 @@ import argparse
 import asyncio
 import collections
 import dataclasses
-import datetime
 import json
 import logging
 import os
@@ -15,8 +14,9 @@ from typing import AbstractSet, Dict, List, Optional, Sequence, Set
 
 import aiohttp
 
-from committer import Committer
 from environment import Environment
+from plants.committer import Committer
+from plants.external import allow_external_calls
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 logger: logging.Logger = logging.getLogger(__name__)
@@ -337,9 +337,7 @@ class Spotify:
         return access_token
 
 
-async def publish(
-    now: datetime.datetime, playlists_dir: pathlib.Path, prod: bool
-) -> None:
+async def publish(playlists_dir: pathlib.Path, prod: bool) -> None:
 
     # Check nonempty to fail fast
     client_id = Environment.get_env("SPOTIFY_CLIENT_ID")
@@ -357,7 +355,7 @@ async def publish(
     finally:
         await spotify.shutdown()
     if prod:
-        Committer.push_updates(now=now)
+        Committer.commit_and_push_if_github_actions()
 
 
 async def publish_impl(
@@ -516,7 +514,6 @@ def argparse_directory(arg: str) -> pathlib.Path:
 
 
 async def main() -> None:
-    now = datetime.datetime.now()
     parser = argparse.ArgumentParser(description="Publish playlists to Spotify")
     subparsers = parser.add_subparsers(dest="action", required=True)
 
@@ -535,9 +532,7 @@ async def main() -> None:
         action="store_true",
         help="Actually publish changes to Spotify",
     )
-    publish_parser.set_defaults(
-        func=lambda args: publish(now, args.playlists, args.prod)
-    )
+    publish_parser.set_defaults(func=lambda args: publish(args.playlists, args.prod))
 
     login_parser = subparsers.add_parser(
         "login",
@@ -550,4 +545,5 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
+    allow_external_calls()
     asyncio.run(main())

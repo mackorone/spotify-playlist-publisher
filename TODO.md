@@ -1,7 +1,9 @@
-- Script is slow due to Spotify rate limiting
-- Sort songs alphabetically
+- Read playlists.json in script.py, keep playlist IDs stable
+- Add playlists to README.md
 - Add playlist description
     - Date added to index
     - Last updated
     - Link back to archive
+- Sort songs alphabetically
 - Handle playlists that exceed track limit
+- Script is slow due to Spotify rate limiting
