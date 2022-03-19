@@ -14,8 +14,8 @@ from typing import AbstractSet, Dict, List, Optional, Sequence, Set
 
 import aiohttp
 
-from environment import Environment
 from plants.committer import Committer
+from plants.environment import Environment
 from plants.external import allow_external_calls
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
@@ -440,7 +440,7 @@ async def publish_impl(
             for scraped_id, published_ids in scraped_to_published.items()
         ]
     )
-    repo_dir = Environment.get_repo_dir()
+    repo_dir = Environment.get_repo_root()
     json_path = repo_dir / "playlists.json"
     with open(json_path, "w") as f:
         f.write(playlists.to_json())
