@@ -153,7 +153,7 @@ class Spotify:
                 + f"/users/{self.USER_ID}/playlists?limit={fetch_limit}&offset={offset}"
             )
             async with self._session.get(href) as response:
-                data = await response.json()
+                data = await response.json(content_type=None)
             error = data.get("error")
             if error:
                 raise Exception(f"Failed to get playlist IDs: {error}")
@@ -210,7 +210,7 @@ class Spotify:
                 "collaborative": False,
             },
         ) as response:
-            data = await response.json()
+            data = await response.json(content_type=None)
         error = data.get("error")
         if error:
             raise Exception(f"Failed to create playlist: {error}")
@@ -234,7 +234,7 @@ class Spotify:
                 self.BASE_URL + f"/playlists/{playlist_id}/tracks",
                 json={"uris": track_uris},
             ) as response:
-                data = await response.json()
+                data = await response.json(content_type=None)
             error = data.get("error")
             if error:
                 # This is hacky... if there's a bad ID in the archive,
@@ -265,7 +265,7 @@ class Spotify:
                 self.BASE_URL + f"/playlists/{playlist_id}/tracks",
                 json={"tracks": track_uris},
             ) as response:
-                data = await response.json()
+                data = await response.json(content_type=None)
             error = data.get("error")
             if error:
                 raise Exception(f"Failed to remove tracks from playlist: {error}")
@@ -289,7 +289,7 @@ class Spotify:
                 },
                 auth=aiohttp.BasicAuth(client_id, client_secret),
             ) as response:
-                data = await response.json()
+                data = await response.json(content_type=None)
 
         error = data.get("error")
         if error:
@@ -320,7 +320,7 @@ class Spotify:
                 },
                 auth=aiohttp.BasicAuth(client_id, client_secret),
             ) as response:
-                data = await response.json()
+                data = await response.json(content_type=None)
 
         error = data.get("error")
         if error:
