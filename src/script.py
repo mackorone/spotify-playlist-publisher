@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import argparse
 import asyncio
 import collections
@@ -35,6 +37,37 @@ class PlaylistMapping:
 @dataclasses.dataclass(frozen=True)
 class PlaylistMappings:
     mappings: Sequence[PlaylistMapping]
+
+    @classmethod
+    def from_json(cls, content: str) -> PlaylistMappings:
+        playlists = json.loads(content)
+        assert isinstance(playlists, dict)
+
+        mappings: List[PlaylistMapping] = []
+        assert isinstance(playlists["mappings"], list)
+        for mapping in playlists["mappings"]:
+            assert isinstance(mapping, dict)
+
+            scraped_playlist_id = mapping["scraped_playlist_id"]
+            assert isinstance(scraped_playlist_id, str)
+            scraped_playlist_id = ScrapedPlaylistID(scraped_playlist_id)
+
+            published_playlist_ids: List[PublishedPlaylistID] = []
+            assert isinstance(mapping["published_playlist_ids"], list)
+            for published_playlist_id in mapping["published_playlist_ids"]:
+                assert isinstance(published_playlist_id, str)
+                published_playlist_ids.append(
+                    PublishedPlaylistID(published_playlist_id)
+                )
+
+            mappings.append(
+                PlaylistMapping(
+                    scraped_playlist_id=scraped_playlist_id,
+                    published_playlist_ids=published_playlist_ids,
+                )
+            )
+
+        return PlaylistMappings(mappings=mappings)
 
     def to_json(self) -> str:
         return json.dumps(
@@ -96,6 +129,13 @@ async def publish(playlists_dir: pathlib.Path, prod: bool) -> None:
 async def publish_impl(
     spotify: Spotify, playlists_dir: pathlib.Path, prod: bool
 ) -> None:
+    # Read playlists.json, preserve existing mappings
+    repo_dir = Environment.get_repo_root()
+    json_path = repo_dir / "playlists.json"
+    with open(json_path, "r") as f:
+        content = f.read()
+    prev_playlist_mappings = PlaylistMappings.from_json(content)
+
     # Read scraped playlists from local storage
     scraped_playlists = get_scraped_playlists(playlists_dir)
 
@@ -179,8 +219,6 @@ async def publish_impl(
             for scraped_id, published_ids in scraped_to_published.items()
         ]
     )
-    repo_dir = Environment.get_repo_root()
-    json_path = repo_dir / "playlists.json"
     with open(json_path, "w") as f:
         f.write(playlists.to_json())
 
