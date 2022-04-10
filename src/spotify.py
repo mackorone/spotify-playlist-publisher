@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from typing import List, Optional, Sequence, Set
+from typing import AsyncIterator, Optional, Sequence, Set
 
 import aiohttp
 
@@ -60,13 +60,12 @@ class Spotify:
         await asyncio.sleep(0)
 
     async def get_published_playlists(
-        self, limit: Optional[int] = None
-    ) -> List[PublishedPlaylist]:
-        playlist_ids = await self._get_playlist_ids(limit)
-        coros = [self._get_playlist(p) for p in playlist_ids]
-        # TODO: Can't gather due to rate limits
-        # return await asyncio.gather(*coros)
-        return [await c for c in coros]
+        self, at_most: Optional[int] = None
+    ) -> AsyncIterator[PublishedPlaylist]:
+        playlist_ids = await self._get_playlist_ids(limit=at_most)
+        # To avoid rate limits, fetch playlists one at a time
+        for playlist_id in playlist_ids:
+            yield await self._get_playlist(playlist_id)
 
     async def _get_playlist_ids(self, limit: Optional[int]) -> Set[str]:
         playlist_ids: Set[str] = set()

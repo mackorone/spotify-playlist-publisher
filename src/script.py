@@ -96,9 +96,9 @@ async def publish_impl(
 
     # When testing, only fetch one playlist to avoid rate limits
     if prod:
-        published_playlists = await spotify.get_published_playlists()
+        published_playlists = [p async for p in spotify.get_published_playlists()]
     else:
-        published_playlists = await spotify.get_published_playlists(limit=1)
+        published_playlists = [p async for p in spotify.get_published_playlists(at_most=1)]
         # Find the corresponding scraped playlist
         name = published_playlists[0].name
         while scraped_playlists[0].name != name:
