@@ -9,24 +9,16 @@ import logging
 import os
 import pathlib
 import urllib.parse
-from typing import AbstractSet, Dict, List, Set
+from typing import Dict, List, Set
 
 from plants.committer import Committer
 from plants.environment import Environment
 from plants.external import allow_external_calls
-from spotify import Spotify, SpotifyPlaylist
+from playlist_types import PublishedPlaylist, ScrapedPlaylist
+from spotify import Spotify
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 logger: logging.Logger = logging.getLogger(__name__)
-
-
-@dataclasses.dataclass(frozen=True)
-class GitHubPlaylist:
-    # Playlist ID of the scraped playlist
-    playlist_id: str
-    name: str
-    description: str
-    track_ids: AbstractSet[str]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -47,34 +39,32 @@ class Playlists:
         )
 
 
-class GitHub:
-    @classmethod
-    async def get_playlists(cls, playlists_dir: pathlib.Path) -> List[GitHubPlaylist]:
-        logger.info(f"Reading playlists from {playlists_dir}")
+def get_scraped_playlists(playlists_dir: pathlib.Path) -> List[ScrapedPlaylist]:
+    logger.info(f"Reading playlists from {playlists_dir}")
 
-        json_files: List[pathlib.Path] = []
-        for path in (playlists_dir / "cumulative").iterdir():
-            if str(path).endswith(".json"):
-                json_files.append(path)
+    json_files: List[pathlib.Path] = []
+    for path in (playlists_dir / "cumulative").iterdir():
+        if str(path).endswith(".json"):
+            json_files.append(path)
 
-        github_playlists: List[GitHubPlaylist] = []
-        for path in json_files:
-            with open(path, "r") as f:
-                playlist = json.load(f)
-            track_ids: Set[str] = set()
-            for track in playlist["tracks"]:
-                track_id = track["url"].split("/")[-1]
-                track_ids.add(track_id)
-            github_playlists.append(
-                GitHubPlaylist(
-                    playlist_id=playlist["url"].split("/")[-1],
-                    name=playlist["name"] + " (Cumulative)",
-                    description=playlist["description"],
-                    track_ids=track_ids,
-                )
+    scraped_playlists: List[ScrapedPlaylist] = []
+    for path in json_files:
+        with open(path, "r") as f:
+            playlist = json.load(f)
+        track_ids: Set[str] = set()
+        for track in playlist["tracks"]:
+            track_id = track["url"].split("/")[-1]
+            track_ids.add(track_id)
+        scraped_playlists.append(
+            ScrapedPlaylist(
+                playlist_id=playlist["url"].split("/")[-1],
+                name=playlist["name"] + " (Cumulative)",
+                description=playlist["description"],
+                track_ids=track_ids,
             )
+        )
 
-        return github_playlists
+    return scraped_playlists
 
 
 async def publish(playlists_dir: pathlib.Path, prod: bool) -> None:
@@ -101,26 +91,26 @@ async def publish(playlists_dir: pathlib.Path, prod: bool) -> None:
 async def publish_impl(
     spotify: Spotify, playlists_dir: pathlib.Path, prod: bool
 ) -> None:
-    # Always read all GitHub playlists from local storage
-    playlists_in_github = await GitHub.get_playlists(playlists_dir)
+    # Read scraped playlists from local storage
+    scraped_playlists = get_scraped_playlists(playlists_dir)
 
     # When testing, only fetch one playlist to avoid rate limits
     if prod:
-        playlists_in_spotify = await spotify.get_playlists()
+        published_playlists = await spotify.get_published_playlists()
     else:
-        playlists_in_spotify = await spotify.get_playlists(limit=1)
-        # Find the corresponding GitHub playlist
-        name = playlists_in_spotify[0].name
-        while playlists_in_github[0].name != name:
-            playlists_in_github = playlists_in_github[1:]
-        playlists_in_github = playlists_in_github[:1]
+        published_playlists = await spotify.get_published_playlists(limit=1)
+        # Find the corresponding scraped playlist
+        name = published_playlists[0].name
+        while scraped_playlists[0].name != name:
+            scraped_playlists = scraped_playlists[1:]
+        scraped_playlists = scraped_playlists[:1]
 
     # Key playlists by name for quick retrieval
-    github_playlists = {p.name: p for p in playlists_in_github}
-    spotify_playlists = {p.name: p for p in playlists_in_spotify}
+    scraped_playlists_dict = {p.name: p for p in scraped_playlists}
+    published_playlists_dict = {p.name: p for p in published_playlists}
 
-    playlists_to_create = set(github_playlists) - set(spotify_playlists)
-    playlists_to_delete = set(spotify_playlists) - set(github_playlists)
+    playlists_to_create = set(scraped_playlists_dict) - set(published_playlists_dict)
+    playlists_to_delete = set(published_playlists_dict) - set(scraped_playlists_dict)
 
     # Create missing playlists
     for name in sorted(playlists_to_create):
@@ -130,7 +120,7 @@ async def publish_impl(
         else:
             # When testing, just use a fake playlist ID
             playlist_id = f"playlist_id:{name}"
-        spotify_playlists[name] = SpotifyPlaylist(
+        published_playlists_dict[name] = PublishedPlaylist(
             playlist_id=playlist_id,
             name=name,
             description="",
@@ -138,15 +128,15 @@ async def publish_impl(
         )
 
     # Update existing playlists
-    for name, github_playlist in github_playlists.items():
-        github_track_ids = github_playlist.track_ids
+    for name, scraped_playlist in scraped_playlists_dict.items():
+        scraped_track_ids = scraped_playlist.track_ids
 
-        spotify_playlist = spotify_playlists[name]
-        playlist_id = spotify_playlist.playlist_id
-        spotify_track_ids = spotify_playlist.track_ids
+        published_playlist = published_playlists_dict[name]
+        playlist_id = published_playlist.playlist_id
+        published_track_ids = published_playlist.track_ids
 
-        tracks_to_add = list(github_track_ids - spotify_track_ids)
-        tracks_to_remove = list(spotify_track_ids - github_track_ids)
+        tracks_to_add = list(scraped_track_ids - published_track_ids)
+        tracks_to_remove = list(published_track_ids - scraped_track_ids)
 
         if tracks_to_add:
             logger.info(f"Adding tracks to playlist: {name}")
@@ -160,16 +150,16 @@ async def publish_impl(
 
     # Remove extra playlists
     for name in playlists_to_delete:
-        playlist_id = spotify_playlists[name].playlist_id
+        playlist_id = published_playlists_dict[name].playlist_id
         logger.info(f"Unsubscribing from playlist: {name}")
         if prod:
             await spotify.unsubscribe_from_playlist(playlist_id)
 
     # Dump JSON
     scraped_to_published: Dict[str, List[str]] = collections.defaultdict(list)
-    for name, github_playlist in github_playlists.items():
-        scraped_to_published[github_playlist.playlist_id].append(
-            spotify_playlists[name].playlist_id
+    for name, scraped_playlist in scraped_playlists_dict.items():
+        scraped_to_published[scraped_playlist.playlist_id].append(
+            published_playlists_dict[name].playlist_id
         )
     playlists = Playlists(
         playlists=[

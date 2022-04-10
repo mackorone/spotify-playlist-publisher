@@ -1,23 +1,15 @@
 #!/usr/bin/env python3
 
 import asyncio
-import dataclasses
 import logging
 from contextlib import asynccontextmanager
-from typing import AbstractSet, List, Optional, Sequence, Set
+from typing import List, Optional, Sequence, Set
 
 import aiohttp
 
+from playlist_types import PublishedPlaylist
+
 logger: logging.Logger = logging.getLogger(__name__)
-
-
-@dataclasses.dataclass(frozen=True)
-class SpotifyPlaylist:
-    # Playlist ID of the published playlist
-    playlist_id: str
-    name: str
-    description: str
-    track_ids: AbstractSet[str]
 
 
 class Spotify:
@@ -67,7 +59,9 @@ class Spotify:
         # https://docs.aiohttp.org/en/stable/client_advanced.html#graceful-shutdown
         await asyncio.sleep(0)
 
-    async def get_playlists(self, limit: Optional[int] = None) -> List[SpotifyPlaylist]:
+    async def get_published_playlists(
+        self, limit: Optional[int] = None
+    ) -> List[PublishedPlaylist]:
         playlist_ids = await self._get_playlist_ids(limit)
         coros = [self._get_playlist(p) for p in playlist_ids]
         # TODO: Can't gather due to rate limits
@@ -93,7 +87,7 @@ class Spotify:
             total = data["total"]  # total number of public playlists
         return playlist_ids
 
-    async def _get_playlist(self, playlist_id: str) -> SpotifyPlaylist:
+    async def _get_playlist(self, playlist_id: str) -> PublishedPlaylist:
         href = self.BASE_URL + f"/playlists/{playlist_id}?fields=name,description"
         async with self._session.get(href) as response:
             data = await response.json(content_type=None)
@@ -105,7 +99,7 @@ class Spotify:
         logger.info(f"Fetching playlist from Spotify: {name}")
         track_ids = await self._get_track_ids(playlist_id)
         logger.info(f"Done fetching Spotify playlist: {name}")
-        return SpotifyPlaylist(
+        return PublishedPlaylist(
             playlist_id=playlist_id,
             name=name,
             description=description,
