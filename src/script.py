@@ -14,7 +14,12 @@ from typing import Dict, List, Set
 from plants.committer import Committer
 from plants.environment import Environment
 from plants.external import allow_external_calls
-from playlist_types import PublishedPlaylist, ScrapedPlaylist
+from playlist_types import (
+    PublishedPlaylist,
+    PublishedPlaylistID,
+    ScrapedPlaylist,
+    ScrapedPlaylistID,
+)
 from spotify import Spotify
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
@@ -23,8 +28,8 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 @dataclasses.dataclass(frozen=True)
 class Playlist:
-    scraped_playlist_id: str
-    published_playlist_ids: List[str]
+    scraped_playlist_id: ScrapedPlaylistID
+    published_playlist_ids: List[PublishedPlaylistID]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -57,7 +62,7 @@ def get_scraped_playlists(playlists_dir: pathlib.Path) -> List[ScrapedPlaylist]:
             track_ids.add(track_id)
         scraped_playlists.append(
             ScrapedPlaylist(
-                playlist_id=playlist["url"].split("/")[-1],
+                playlist_id=ScrapedPlaylistID(playlist["url"].split("/")[-1]),
                 name=playlist["name"] + " (Cumulative)",
                 description=playlist["description"],
                 track_ids=track_ids,
@@ -98,7 +103,9 @@ async def publish_impl(
     if prod:
         published_playlists = [p async for p in spotify.get_published_playlists()]
     else:
-        published_playlists = [p async for p in spotify.get_published_playlists(at_most=1)]
+        published_playlists = [
+            p async for p in spotify.get_published_playlists(at_most=1)
+        ]
         # Find the corresponding scraped playlist
         name = published_playlists[0].name
         while scraped_playlists[0].name != name:
@@ -119,7 +126,7 @@ async def publish_impl(
             playlist_id = await spotify.create_playlist(name)
         else:
             # When testing, just use a fake playlist ID
-            playlist_id = f"playlist_id:{name}"
+            playlist_id = PublishedPlaylistID(f"playlist_id:{name}")
         published_playlists_dict[name] = PublishedPlaylist(
             playlist_id=playlist_id,
             name=name,
@@ -156,7 +163,9 @@ async def publish_impl(
             await spotify.unsubscribe_from_playlist(playlist_id)
 
     # Dump JSON
-    scraped_to_published: Dict[str, List[str]] = collections.defaultdict(list)
+    scraped_to_published: Dict[
+        ScrapedPlaylistID, List[PublishedPlaylistID]
+    ] = collections.defaultdict(list)
     for name, scraped_playlist in scraped_playlists_dict.items():
         scraped_to_published[scraped_playlist.playlist_id].append(
             published_playlists_dict[name].playlist_id

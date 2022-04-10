@@ -7,7 +7,7 @@ from typing import AsyncIterator, Optional, Sequence, Set
 
 import aiohttp
 
-from playlist_types import PublishedPlaylist
+from playlist_types import PublishedPlaylist, PublishedPlaylistID
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -67,8 +67,8 @@ class Spotify:
         for playlist_id in playlist_ids:
             yield await self._get_playlist(playlist_id)
 
-    async def _get_playlist_ids(self, limit: Optional[int]) -> Set[str]:
-        playlist_ids: Set[str] = set()
+    async def _get_playlist_ids(self, limit: Optional[int]) -> Set[PublishedPlaylistID]:
+        playlist_ids: Set[PublishedPlaylistID] = set()
         fetch_limit = limit or 50
         total = 1  # just need something nonzero to enter the loop
         while len(playlist_ids) < (limit or total):
@@ -82,11 +82,13 @@ class Spotify:
             error = data.get("error")
             if error:
                 raise Exception(f"Failed to get playlist IDs: {error}")
-            playlist_ids |= {item["id"] for item in data["items"]}
+            playlist_ids |= {PublishedPlaylistID(item["id"]) for item in data["items"]}
             total = data["total"]  # total number of public playlists
         return playlist_ids
 
-    async def _get_playlist(self, playlist_id: str) -> PublishedPlaylist:
+    async def _get_playlist(
+        self, playlist_id: PublishedPlaylistID
+    ) -> PublishedPlaylist:
         href = self.BASE_URL + f"/playlists/{playlist_id}?fields=name,description"
         async with self._session.get(href) as response:
             data = await response.json(content_type=None)
@@ -105,7 +107,7 @@ class Spotify:
             track_ids=track_ids,
         )
 
-    async def _get_track_ids(self, playlist_id: str) -> Set[str]:
+    async def _get_track_ids(self, playlist_id: PublishedPlaylistID) -> Set[str]:
         track_ids = set()
         href = (
             self.BASE_URL
@@ -125,7 +127,7 @@ class Spotify:
             href = data["next"]
         return track_ids
 
-    async def create_playlist(self, name: str) -> str:
+    async def create_playlist(self, name: str) -> PublishedPlaylistID:
         href = self.BASE_URL + f"/users/{self.USER_ID}/playlists"
         async with self._session.post(
             href,
@@ -139,16 +141,18 @@ class Spotify:
         error = data.get("error")
         if error:
             raise Exception(f"Failed to create playlist: {error}")
-        return data["id"]
+        return PublishedPlaylistID(data["id"])
 
-    async def unsubscribe_from_playlist(self, playlist_id: str) -> None:
+    async def unsubscribe_from_playlist(self, playlist_id: PublishedPlaylistID) -> None:
         href = self.BASE_URL + f"/playlists/{playlist_id}/followers"
         async with self._session.delete(href) as response:
             if response.status != 200:
                 text = await response.text()
                 raise Exception(f"Failed to unsubscribe from playlist: {text}")
 
-    async def add_items(self, playlist_id: str, track_ids: Sequence[str]) -> None:
+    async def add_items(
+        self, playlist_id: PublishedPlaylistID, track_ids: Sequence[str]
+    ) -> None:
         # Group the tracks in batches of 100, since that's the limit.
         for i in range(0, len(track_ids), 100):
             track_uris = [
@@ -179,7 +183,9 @@ class Spotify:
                 else:
                     raise Exception(f"Failed to add tracks to playlist: {error}")
 
-    async def remove_items(self, playlist_id: str, track_ids: Sequence[str]) -> None:
+    async def remove_items(
+        self, playlist_id: PublishedPlaylistID, track_ids: Sequence[str]
+    ) -> None:
         # Group the tracks in batches of 100, since that's the limit.
         for i in range(0, len(track_ids), 100):
             track_uris = [
