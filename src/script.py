@@ -216,7 +216,7 @@ async def publish_impl(
                 scraped_playlist_id=scraped_id,
                 published_playlist_ids=published_ids,
             )
-            for scraped_id, published_ids in scraped_to_published.items()
+            for scraped_id, published_ids in sorted(scraped_to_published.items())
         ]
     )
     with open(json_path, "w") as f:
