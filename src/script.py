@@ -67,7 +67,17 @@ class PlaylistMappings:
                 )
             )
 
+        cls._ensure_no_overlaps(mappings=mappings)
         return PlaylistMappings(mappings=mappings)
+
+    @classmethod
+    def _ensure_no_overlaps(cls, mappings: Sequence[PlaylistMapping]) -> None:
+        counter = collections.Counter()
+        for mapping in mappings:
+            counter.update(mapping.published_playlist_ids)
+        overlaps = sorted(x for x, count in counter.items() if count > 1)
+        if overlaps:
+            raise Exception(f"Some published IDs appear more than once: {overlaps}")
 
     def to_json(self) -> str:
         return json.dumps(
