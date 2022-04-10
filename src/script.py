@@ -9,7 +9,7 @@ import logging
 import os
 import pathlib
 import urllib.parse
-from typing import Dict, List, Set
+from typing import Dict, List, Sequence, Set
 
 from plants.committer import Committer
 from plants.environment import Environment
@@ -27,14 +27,14 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 @dataclasses.dataclass(frozen=True)
-class Playlist:
+class PlaylistMapping:
     scraped_playlist_id: ScrapedPlaylistID
-    published_playlist_ids: List[PublishedPlaylistID]
+    published_playlist_ids: Sequence[PublishedPlaylistID]
 
 
 @dataclasses.dataclass(frozen=True)
-class Playlists:
-    playlists: List[Playlist]
+class PlaylistMappings:
+    mappings: Sequence[PlaylistMapping]
 
     def to_json(self) -> str:
         return json.dumps(
@@ -170,9 +170,9 @@ async def publish_impl(
         scraped_to_published[scraped_playlist.playlist_id].append(
             published_playlists_dict[name].playlist_id
         )
-    playlists = Playlists(
-        playlists=[
-            Playlist(
+    playlists = PlaylistMappings(
+        mappings=[
+            PlaylistMapping(
                 scraped_playlist_id=scraped_id,
                 published_playlist_ids=published_ids,
             )
