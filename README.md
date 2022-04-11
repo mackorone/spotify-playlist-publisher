@@ -7,7 +7,6 @@
 
 ## Playlists
 
-- [ Fresh Finds AU & NZ \(Cumulative\)](https://open.spotify.com/playlist/6SzaS17cgVZQMPJsRPmBsR)
 - ['90s Baby Makers \(Cumulative\)](https://open.spotify.com/playlist/5GiYoPdEGXgoW4OrhGKFS7)
 - ['fit check \(Cumulative\)](https://open.spotify.com/playlist/1rO8B2vsAs9SO6ZWOsVe5g)
 - [.ORG \(Cumulative\)](https://open.spotify.com/playlist/150ZZwzNCm1BXFjIA5T8kJ)
@@ -928,6 +927,7 @@
 - [Fresh & Chill \(Cumulative\)](https://open.spotify.com/playlist/0bYTEzgb7cQ54Fa4kGbaPS)
 - [Fresh Country \(Cumulative\)](https://open.spotify.com/playlist/4BrfIt5VuvXM9ZKeooO5jX)
 - [Fresh Dance Pop \(Cumulative\)](https://open.spotify.com/playlist/0Wt1WNhsHEp62QHeiMAcMq)
+- [Fresh Finds AU & NZ \(Cumulative\)](https://open.spotify.com/playlist/6SzaS17cgVZQMPJsRPmBsR)
 - [Fresh Finds Brasil \(Cumulative\)](https://open.spotify.com/playlist/67GFnJVXnyWY0MjhTSXEEJ)
 - [Fresh Finds Country \(Cumulative\)](https://open.spotify.com/playlist/6mwEcxK6QfboeMswgDS0cE)
 - [Fresh Finds Dance \(Cumulative\)](https://open.spotify.com/playlist/4dKpDBG1y7h8bfA4dbtQPc)
