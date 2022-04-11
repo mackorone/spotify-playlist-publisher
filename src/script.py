@@ -230,7 +230,7 @@ async def publish_impl(
         ]
     )
     with open(json_path, "w") as f:
-        f.write(playlists.to_json())
+        f.write(playlists.to_json() + "\n")
 
 
 async def login() -> None:
