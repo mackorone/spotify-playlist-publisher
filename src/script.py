@@ -273,7 +273,7 @@ async def publish_impl(
         # the README, not just the first one for each scraped playlist
         published_playlist_id = mapping.published_playlist_ids[0]
         published_playlist = published_playlists[published_playlist_id]
-        text = MarkdownEscapedString(published_playlist.name)
+        text = MarkdownEscapedString(published_playlist.name.strip())
         link = f"https://open.spotify.com/playlist/{published_playlist.playlist_id}"
         playlist_lines.append(f"- [{text}]({link})")
     readme_path = repo_dir / "README.md"
