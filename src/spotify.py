@@ -3,10 +3,11 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from typing import AsyncIterator, Optional, Sequence, Set
+from typing import AsyncIterator, Mapping, Optional, Sequence, Set
 
 import aiohttp
 
+from plants.external import external
 from playlist_types import PublishedPlaylist, PublishedPlaylistID
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -20,7 +21,7 @@ class Spotify:
 
     def __init__(self, access_token: str) -> None:
         headers = {"Authorization": f"Bearer {access_token}"}
-        self._session = aiohttp.ClientSession(headers=headers)
+        self._session: aiohttp.ClientSession = self._get_session(headers=headers)
         # Handle rate limiting by retrying
         self._retry_budget_seconds: int = 30
         self._session.get = self._make_retryable(self._session.get)
@@ -202,6 +203,7 @@ class Spotify:
                 raise Exception(f"Failed to remove tracks from playlist: {error}")
 
     @classmethod
+    @external
     async def get_user_refresh_token(
         cls,
         client_id: str,
@@ -237,6 +239,7 @@ class Spotify:
         return refresh_token
 
     @classmethod
+    @external
     async def get_user_access_token(
         cls, client_id: str, client_secret: str, refresh_token: str
     ) -> str:
@@ -266,3 +269,10 @@ class Spotify:
             raise Exception("Invalid token type: {}".format(token_type))
 
         return access_token
+
+    @classmethod
+    @external
+    def _get_session(
+        cls, headers: Optional[Mapping[str, str]] = None
+    ) -> aiohttp.ClientSession:
+        return aiohttp.ClientSession(headers=headers)
