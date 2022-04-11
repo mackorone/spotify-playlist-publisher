@@ -16,6 +16,7 @@ from typing import Dict, List, Mapping, Sequence, Set, Tuple
 from plants.committer import Committer
 from plants.environment import Environment
 from plants.external import allow_external_calls
+from plants.markdown import MarkdownEscapedString
 from playlist_types import (
     PublishedPlaylist,
     PublishedPlaylistID,
@@ -264,6 +265,24 @@ async def publish_impl(
     )
     with open(json_path, "w") as f:
         f.write(playlists.to_json() + "\n")
+
+    # Update README.md
+    playlist_lines: List[str] = []
+    for mapping in playlists.mappings:
+        # TODO: Support large playlists - include all published playlists in
+        # the README, not just the first one for each scraped playlist
+        published_playlist_id = mapping.published_playlist_ids[0]
+        published_playlist = published_playlists[published_playlist_id]
+        text = MarkdownEscapedString(published_playlist.name)
+        link = f"https://open.spotify.com/playlist/{published_playlist.playlist_id}"
+        playlist_lines.append(f"- [{text}]({link})")
+    readme_path = repo_dir / "README.md"
+    with open(readme_path, "r") as f:
+        old_lines = f.read().splitlines()
+    index = old_lines.index("## Playlists")
+    new_lines = old_lines[: index + 1] + [""] + sorted(playlist_lines)
+    with open(readme_path, "w") as f:
+        f.write("\n".join(new_lines) + "\n")
 
 
 async def get_test_playlists(

@@ -1,5 +1,5 @@
-- Add playlists to README.md
-- Add playlist description
+- Update published playlist names
+- Update published playlist descriptions
     - Date added to index
     - Last updated
     - Link back to archive

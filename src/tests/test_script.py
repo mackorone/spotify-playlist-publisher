@@ -260,6 +260,16 @@ class TestPublishImpl(IsolatedAsyncioTestCase):
     # Patch the logger to suppress log spew
     @patch("script.logger")
     async def test_success(self, mock_logger: Mock) -> None:
+        with open(self.repo_dir / "README.md", "w") as f:
+            f.write(
+                textwrap.dedent(
+                    """\
+                    Arbitrary text
+
+                    ## Playlists
+                    """
+                )
+            )
         with open(self.repo_dir / "playlists.json", "w") as f:
             f.write(
                 textwrap.dedent(
@@ -296,37 +306,52 @@ class TestPublishImpl(IsolatedAsyncioTestCase):
         )
         self.mock_get_scraped_playlists.assert_called_once_with(self.mock_playlists_dir)
         self.mock_spotify.get_published_playlists.assert_called_once_with()
+        with open(self.repo_dir / "README.md", "r") as f:
+            link_prefix = "https://open.spotify.com/playlist"
+            self.assertEqual(
+                f.read(),
+                textwrap.dedent(
+                    f"""\
+                    Arbitrary text
+
+                    ## Playlists
+
+                    - [published\\_1\\_name]({link_prefix}/published_1_id)
+                    - [scraped\\_2\\_name]({link_prefix}/published_4_id)
+                    - [scraped\\_3\\_name]({link_prefix}/published_5_id)
+                    """,
+                ),
+            )
         with open(self.repo_dir / "playlists.json", "r") as f:
-            content = f.read()
-        self.assertEqual(
-            content,
-            textwrap.dedent(
-                """\
-                {
-                  "mappings": [
+            self.assertEqual(
+                f.read(),
+                textwrap.dedent(
+                    """\
                     {
-                      "published_playlist_ids": [
-                        "published_1_id"
-                      ],
-                      "scraped_playlist_id": "scraped_1_id"
-                    },
-                    {
-                      "published_playlist_ids": [
-                        "published_4_id"
-                      ],
-                      "scraped_playlist_id": "scraped_2_id"
-                    },
-                    {
-                      "published_playlist_ids": [
-                        "published_5_id"
-                      ],
-                      "scraped_playlist_id": "scraped_3_id"
+                      "mappings": [
+                        {
+                          "published_playlist_ids": [
+                            "published_1_id"
+                          ],
+                          "scraped_playlist_id": "scraped_1_id"
+                        },
+                        {
+                          "published_playlist_ids": [
+                            "published_4_id"
+                          ],
+                          "scraped_playlist_id": "scraped_2_id"
+                        },
+                        {
+                          "published_playlist_ids": [
+                            "published_5_id"
+                          ],
+                          "scraped_playlist_id": "scraped_3_id"
+                        }
+                      ]
                     }
-                  ]
-                }
-                """,
-            ),
-        )
+                    """,
+                ),
+            )
         self.mock_spotify.create_playlist.assert_has_calls(
             [
                 call("scraped_2_name"),
