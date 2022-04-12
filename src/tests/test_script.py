@@ -238,7 +238,7 @@ class TestPublishImpl(IsolatedAsyncioTestCase):
         # Has a valid mapping
         yield PublishedPlaylist(
             playlist_id=PublishedPlaylistID("published_1_id"),
-            name="published_1_name",
+            name="\t  published_1_name   ",  # ensure whitespace is stripped
             description="published_1_desc",
             track_ids={"2", "3"},
         )
