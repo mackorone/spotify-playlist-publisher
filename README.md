@@ -240,6 +240,7 @@
 - [Ambient Essentials \(Cumulative\)](https://open.spotify.com/playlist/4tCCo6NoGYqZ9eXOzwjcnm)
 - [Ambient Post\-Rock \(Cumulative\)](https://open.spotify.com/playlist/3q59BnHGehGPnPkDsqpEvo)
 - [Ambient Relaxation \(Cumulative\)](https://open.spotify.com/playlist/4jfP2jJUFCxoSc7UvsCsbj)
+- [Ambient Shoegaze \(Cumulative\)](https://open.spotify.com/playlist/0CAQvjSr54E3ebNuJC92r5)
 - [Ambient Tokyo \(Cumulative\)](https://open.spotify.com/playlist/4yRMmJhsvszYGvpMChx2d3)
 - [Ambiente \(Cumulative\)](https://open.spotify.com/playlist/2VJZyunnZCFnCPLdfBtZ7N)
 - [American Made \(Cumulative\)](https://open.spotify.com/playlist/2OfGSsRQrmUhNpqr9RXiRv)
