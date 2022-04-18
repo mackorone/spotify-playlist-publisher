@@ -151,13 +151,17 @@ class TestGetScrapedPlaylists(TestCase):
                     ScrapedPlaylistID("foo"): ScrapedPlaylist(
                         playlist_id=ScrapedPlaylistID("foo"),
                         name="Foo (Cumulative)",
-                        description="The foo playlist",
+                        description=(
+                            "Link to archive: https://tinyurl.com/4mvw765u/foo.md"
+                        ),
                         track_ids={"1", "2", "3"},
                     ),
                     ScrapedPlaylistID("bar"): ScrapedPlaylist(
                         playlist_id=ScrapedPlaylistID("bar"),
                         name="Bar (Cumulative)",
-                        description="The bar playlist",
+                        description=(
+                            "Link to archive: https://tinyurl.com/4mvw765u/bar.md"
+                        ),
                         track_ids={"3", "4", "5"},
                     ),
                 },
@@ -201,6 +205,7 @@ class TestPublishImpl(IsolatedAsyncioTestCase):
             "scraped_3_name (Cumulative)": "published_5_id",
         }[name]
         self.mock_spotify.unsubscribe_from_playlist = AsyncMock()
+        self.mock_spotify.change_playlist_details = AsyncMock()
         self.mock_spotify.add_items = AsyncMock()
         self.mock_spotify.remove_items = AsyncMock()
 
@@ -362,6 +367,19 @@ class TestPublishImpl(IsolatedAsyncioTestCase):
             [
                 call("published_2_id"),
                 call("published_3_id"),
+            ]
+        )
+        self.mock_spotify.change_playlist_details.assert_has_calls(
+            [
+                call(
+                    "published_1_id",
+                    {
+                        "name": "scraped_1_name (Cumulative)",
+                        "description": "Scraped_1_desc",
+                    },
+                ),
+                call("published_4_id", {"description": "scraped_2_desc"}),
+                call("published_5_id", {"description": "scraped_3_desc"}),
             ]
         )
         self.mock_spotify.add_items.assert_has_calls(

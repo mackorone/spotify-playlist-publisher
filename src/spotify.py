@@ -25,7 +25,7 @@ class Spotify:
         # Handle rate limiting by retrying
         self._retry_budget_seconds: int = 30
         self._session.get = self._make_retryable(self._session.get)
-        self._session.put = self._make_retryable(self._session.get)
+        self._session.put = self._make_retryable(self._session.put)
         self._session.post = self._make_retryable(self._session.post)
         self._session.delete = self._make_retryable(self._session.delete)
 
@@ -150,6 +150,20 @@ class Spotify:
             if response.status != 200:
                 text = await response.text()
                 raise Exception(f"Failed to unsubscribe from playlist: {text}")
+
+    async def change_playlist_details(
+        self, playlist_id: PublishedPlaylistID, details_to_change: Mapping[str, str]
+    ) -> None:
+        description = details_to_change.get("description")
+        if description and "\n" in description:
+            raise Exception(f"Newlines in description are not allowed: {description}")
+        async with self._session.put(
+            self.BASE_URL + f"/playlists/{playlist_id}",
+            json=details_to_change,
+        ) as response:
+            if response.status != 200:
+                text = await response.text()
+                raise Exception(f"Failed to change playlist details: {text}")
 
     async def add_items(
         self, playlist_id: PublishedPlaylistID, track_ids: Sequence[str]

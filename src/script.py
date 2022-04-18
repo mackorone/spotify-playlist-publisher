@@ -107,10 +107,11 @@ def get_scraped_playlists(
             track_id = track["url"].split("/")[-1]
             track_ids.add(track_id)
         playlist_id = ScrapedPlaylistID(path.name[: -len(".json")])
+        description = f"Link to archive: https://tinyurl.com/4mvw765u/{playlist_id}.md"
         scraped_playlists[playlist_id] = ScrapedPlaylist(
             playlist_id=playlist_id,
             name=playlist["name"] + " (Cumulative)",
-            description=playlist["description"],
+            description=description,
             track_ids=track_ids,
         )
 
@@ -219,8 +220,9 @@ async def publish_impl(
 
     # Update existing playlists
     for scraped_playlist_id, scraped_playlist in sorted(scraped_playlists.items()):
-        name = scraped_playlist.name
+        scraped_name = scraped_playlist.name
         scraped_track_ids = scraped_playlist.track_ids
+        scraped_description = scraped_playlist.description
 
         # TODO: Support large playlists - don't just grab the first published
         # playlist; instead calclate how many published playlists are required,
@@ -229,20 +231,33 @@ async def publish_impl(
         assert len(published_playlist_ids) == 1
         published_playlist_id = published_playlist_ids[0]
         published_playlist = published_playlists[published_playlist_id]
+        published_name = published_playlist.name
         published_track_ids = published_playlist.track_ids
+        published_description = published_playlist.description
+
+        details_to_change = {}
+        if published_name != scraped_name:
+            details_to_change["name"] = scraped_name
+        if published_description != scraped_description:
+            details_to_change["description"] = scraped_description
+        if details_to_change:
+            logger.info(f"Updating playlist details: {details_to_change}")
+            if prod:
+                await spotify.change_playlist_details(
+                    published_playlist_id, details_to_change
+                )
 
         tracks_to_add = list(scraped_track_ids - published_track_ids)
-        tracks_to_remove = list(published_track_ids - scraped_track_ids)
-
         if tracks_to_add:
             count = len(tracks_to_add)
-            logger.info(f"Adding {count} track(s) to playlist: {name}")
+            logger.info(f"Adding {count} track(s) to playlist: {scraped_name}")
             if prod:
                 await spotify.add_items(published_playlist_id, tracks_to_add)
 
+        tracks_to_remove = list(published_track_ids - scraped_track_ids)
         if tracks_to_remove:
             count = len(tracks_to_remove)
-            logger.info(f"Removing {count} track(s) from playlist: {name}")
+            logger.info(f"Removing {count} track(s) from playlist: {scraped_name}")
             if prod:
                 await spotify.remove_items(published_playlist_id, tracks_to_remove)
 
