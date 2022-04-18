@@ -266,21 +266,26 @@ async def publish_impl(
     with open(json_path, "w") as f:
         f.write(playlists.to_json() + "\n")
 
-    # Update README.md
-    playlist_lines: List[str] = []
+    # Update README.md, sort by name without suffix
+    suffix = " (Cumulative)"
+    playlist_tuples: List[Tuple[str, str]] = []
     for mapping in playlists.mappings:
         # TODO: Support large playlists - include all published playlists in
         # the README, not just the first one for each scraped playlist
         published_playlist_id = mapping.published_playlist_ids[0]
         published_playlist = published_playlists[published_playlist_id]
-        text = MarkdownEscapedString(published_playlist.name.strip())
+        name_stripped = published_playlist.name.strip()
+        assert name_stripped.endswith(suffix), name_stripped
+        name_no_suffix = name_stripped[: -len(suffix)]
+        text = MarkdownEscapedString(name_stripped)
         link = f"https://open.spotify.com/playlist/{published_playlist.playlist_id}"
-        playlist_lines.append(f"- [{text}]({link})")
+        playlist_tuples.append((name_no_suffix, f"- [{text}]({link})"))
     readme_path = repo_dir / "README.md"
     with open(readme_path, "r") as f:
         old_lines = f.read().splitlines()
     index = old_lines.index("## Playlists")
-    new_lines = old_lines[: index + 1] + [""] + sorted(playlist_lines)
+    playlist_lines = [name for key, name in sorted(playlist_tuples)]
+    new_lines = old_lines[: index + 1] + [""] + playlist_lines
     with open(readme_path, "w") as f:
         f.write("\n".join(new_lines) + "\n")
 

@@ -197,8 +197,8 @@ class TestPublishImpl(IsolatedAsyncioTestCase):
         )
         self.mock_spotify.create_playlist = AsyncMock()
         self.mock_spotify.create_playlist.side_effect = lambda name: {
-            "scraped_2_name": "published_4_id",
-            "scraped_3_name": "published_5_id",
+            "scraped_2_name (Cumulative)": "published_4_id",
+            "scraped_3_name (Cumulative)": "published_5_id",
         }[name]
         self.mock_spotify.unsubscribe_from_playlist = AsyncMock()
         self.mock_spotify.add_items = AsyncMock()
@@ -214,21 +214,21 @@ class TestPublishImpl(IsolatedAsyncioTestCase):
             # Has a valid mapping
             ScrapedPlaylistID("scraped_1_id"): ScrapedPlaylist(
                 playlist_id=ScrapedPlaylistID("scraped_1_id"),
-                name="scraped_1_name",
+                name="scraped_1_name (Cumulative)",
                 description="Scraped_1_desc",
                 track_ids={"1", "2"},
             ),
             # Has an invalid mapping
             ScrapedPlaylistID("scraped_2_id"): ScrapedPlaylist(
                 playlist_id=ScrapedPlaylistID("scraped_2_id"),
-                name="scraped_2_name",
+                name="scraped_2_name (Cumulative)",
                 description="scraped_2_desc",
                 track_ids={"123"},
             ),
             # Has no mapping
             ScrapedPlaylistID("scraped_3_id"): ScrapedPlaylist(
                 playlist_id=ScrapedPlaylistID("scraped_3_id"),
-                name="scraped_3_name",
+                name="scraped_3_name (Cumulative)",
                 description="scraped_3_desc",
                 track_ids={"123"},
             ),
@@ -238,21 +238,21 @@ class TestPublishImpl(IsolatedAsyncioTestCase):
         # Has a valid mapping
         yield PublishedPlaylist(
             playlist_id=PublishedPlaylistID("published_1_id"),
-            name="\t  published_1_name   ",  # ensure whitespace is stripped
+            name="\t published_1_name (Cumulative) ",  # ensure whitespace is stripped
             description="published_1_desc",
             track_ids={"2", "3"},
         )
         # Has an invalid mapping
         yield PublishedPlaylist(
             playlist_id=PublishedPlaylistID("published_2_id"),
-            name="published_2_name",
+            name="published_2_name (Cumulative)",
             description="published_2_desc",
             track_ids={"456"},
         )
         # Has no mapping (unreferenced)
         yield PublishedPlaylist(
             playlist_id=PublishedPlaylistID("published_3_id"),
-            name="published_3_name",
+            name="published_3_name (Cumulative)",
             description="published_3_desc",
             track_ids={"456"},
         )
@@ -307,7 +307,7 @@ class TestPublishImpl(IsolatedAsyncioTestCase):
         self.mock_get_scraped_playlists.assert_called_once_with(self.mock_playlists_dir)
         self.mock_spotify.get_published_playlists.assert_called_once_with()
         with open(self.repo_dir / "README.md", "r") as f:
-            link_prefix = "https://open.spotify.com/playlist"
+            prefix = "https://open.spotify.com/playlist"
             self.assertEqual(
                 f.read(),
                 textwrap.dedent(
@@ -316,9 +316,9 @@ class TestPublishImpl(IsolatedAsyncioTestCase):
 
                     ## Playlists
 
-                    - [published\\_1\\_name]({link_prefix}/published_1_id)
-                    - [scraped\\_2\\_name]({link_prefix}/published_4_id)
-                    - [scraped\\_3\\_name]({link_prefix}/published_5_id)
+                    - [published\\_1\\_name \\(Cumulative\\)]({prefix}/published_1_id)
+                    - [scraped\\_2\\_name \\(Cumulative\\)]({prefix}/published_4_id)
+                    - [scraped\\_3\\_name \\(Cumulative\\)]({prefix}/published_5_id)
                     """,
                 ),
             )
@@ -354,8 +354,8 @@ class TestPublishImpl(IsolatedAsyncioTestCase):
             )
         self.mock_spotify.create_playlist.assert_has_calls(
             [
-                call("scraped_2_name"),
-                call("scraped_3_name"),
+                call("scraped_2_name (Cumulative)"),
+                call("scraped_3_name (Cumulative)"),
             ]
         )
         self.mock_spotify.unsubscribe_from_playlist.assert_has_calls(
