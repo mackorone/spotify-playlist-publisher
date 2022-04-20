@@ -1,2 +1,3 @@
 - Support large playlists, i.e., ones that exceed the track limit
 - Script is slow due to Spotify rate limiting, add progress bar
+- Build a tool/UI for reincarnating old playlists snapshots
