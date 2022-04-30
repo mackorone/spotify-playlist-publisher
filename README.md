@@ -3175,6 +3175,7 @@
 - [reposaito \(Cumulative\)](https://open.spotify.com/playlist/3Q9pI8ajNSCNFWh0sMcjRH)
 - [rock X rock \(Cumulative\)](https://open.spotify.com/playlist/4cXijYdu2gMfDG9vVRlwOd)
 - [royalcore \(Cumulative\)](https://open.spotify.com/playlist/2v8yMWug6NT2lbtXU1fqbl)
+- [sad girl country \(Cumulative\)](https://open.spotify.com/playlist/4RNcP1yr6aGefjxN7svMAz)
 - [sad girl starter pack \(Cumulative\)](https://open.spotify.com/playlist/5xkrtz2ZNtOUjV3wvR4itN)
 - [sad hour \(Cumulative\)](https://open.spotify.com/playlist/6tJGIzI3K3tQit8JSbnL1t)
 - [ska D aká \(Cumulative\)](https://open.spotify.com/playlist/7sowbFUvoZr7b5eIa5Z44L)
