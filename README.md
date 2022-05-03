@@ -1264,6 +1264,7 @@
 - [Hours of Ours \(Cumulative\)](https://open.spotify.com/playlist/5tsQBAnCuAGb5NREKJ7X16)
 - [House Focus \(Cumulative\)](https://open.spotify.com/playlist/2U5iwBxMgQ55J0jIhFXqmY)
 - [House Party \(Cumulative\)](https://open.spotify.com/playlist/4kHlGm9ha80s1MDcD5zhCA)
+- [House Shift \(Cumulative\)](https://open.spotify.com/playlist/4pdLRyqq23R7zciMXjJDN6)
 - [House Supreme \(Cumulative\)](https://open.spotify.com/playlist/1jmDVl99lY2U7kbnO53Sgs)
 - [Housewerk \(Cumulative\)](https://open.spotify.com/playlist/1B1wblzRfDqZJTGVsoUfwr)
 - [How to Write..\. \(Cumulative\)](https://open.spotify.com/playlist/7blaG5L2CB9qu7uIP3D2g3)
