@@ -681,7 +681,7 @@
 - [Country Worldwide Hot 50 \(Cumulative\)](https://open.spotify.com/playlist/4jlP9JLoDqL2UcXAwJMvrX)
 - [Country by the Grace of God \(Cumulative\)](https://open.spotify.com/playlist/6cE3SvtvS08f7zxJyG9uyM)
 - [Country's Greatest Hits \(Cumulative\)](https://open.spotify.com/playlist/6DZgMLSuA1tQ7AmQ8iik18)
-- [Coupe Decale \(Cumulative\)](https://open.spotify.com/playlist/05NUJhg2S8ET7TkDhLag5G)
+- [Coupé Decalé \(Cumulative\)](https://open.spotify.com/playlist/05NUJhg2S8ET7TkDhLag5G)
 - [Covered In Punk \(Cumulative\)](https://open.spotify.com/playlist/5mFudwF8WaoxgZwyt9a9md)
 - [Covered in Country \(Cumulative\)](https://open.spotify.com/playlist/2rersrs964qy1F1QkRppuQ)
 - [Cozinhando em Casa \(Cumulative\)](https://open.spotify.com/playlist/6Mucr2ILFuIcViB8dUsQZn)
