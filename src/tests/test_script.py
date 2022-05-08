@@ -8,6 +8,7 @@ from typing import AsyncIterator, Dict, TypeVar
 from unittest import IsolatedAsyncioTestCase, TestCase
 from unittest.mock import AsyncMock, Mock, call, patch, sentinel
 
+from plants.unittest_utils import UnittestUtils
 from playlist_types import (
     PublishedPlaylist,
     PublishedPlaylistID,
@@ -169,28 +170,20 @@ class TestGetScrapedPlaylists(TestCase):
 
 
 class TestPublishImpl(IsolatedAsyncioTestCase):
-    def _patch(
-        self,
-        target: str,
-        side_effect: T,
-    ) -> T:
-        patcher = patch(target, side_effect=side_effect)
-        mock_object = patcher.start()
-        self.addCleanup(patcher.stop)
-        return mock_object
-
     async def asyncSetUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
         self.repo_dir = pathlib.Path(self.temp_dir.name)
 
-        self.mock_get_repo_root = self._patch(
+        self.mock_get_repo_root = UnittestUtils.patch(
+            self,
             "plants.environment.Environment.get_repo_root",
-            side_effect=[self.repo_dir],
+            new_callable=lambda: Mock(side_effect=[self.repo_dir]),
         )
 
-        self.mock_get_scraped_playlists = self._patch(
+        self.mock_get_scraped_playlists = UnittestUtils.patch(
+            self,
             "script.get_scraped_playlists",
-            side_effect=self._mock_get_scraped_playlists,
+            new_callable=lambda: Mock(side_effect=self._mock_get_scraped_playlists),
         )
 
         self.mock_playlists_dir = sentinel.playlists_dir

@@ -299,7 +299,7 @@ async def publish_impl(
     with open(readme_path, "r") as f:
         old_lines = f.read().splitlines()
     index = old_lines.index("## Playlists")
-    playlist_lines = [name for key, name in sorted(playlist_tuples)]
+    playlist_lines = [text for key, text in sorted(playlist_tuples)]
     new_lines = old_lines[: index + 1] + [""] + playlist_lines
     with open(readme_path, "w") as f:
         f.write("\n".join(new_lines) + "\n")
