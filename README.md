@@ -1492,6 +1492,7 @@
 - [Jazzy Christmas Dinner \(Cumulative\)](https://open.spotify.com/playlist/1RCTc7oBE4t1Ge16K09W30)
 - [Jazzy Dinner \(Cumulative\)](https://open.spotify.com/playlist/7yuffmCwXVQZElB2HgVYTG)
 - [Jazzy Korea \(Cumulative\)](https://open.spotify.com/playlist/26wTSHT9kapiRaMyX7792n)
+- [Jazzy Morning \(Cumulative\)](https://open.spotify.com/playlist/39dwJkALAgqseR1XSFerIE)
 - [Jazzy Romance \(Cumulative\)](https://open.spotify.com/playlist/70IqB6MweM6qsbIR6Kn9aT)
 - [Je me souviens: alternatif \(Cumulative\)](https://open.spotify.com/playlist/74OJ5cYHNaWeOdAyQV6W4i)
 - [Je t'aime \(Cumulative\)](https://open.spotify.com/playlist/7bHpNw5RhYKen90eNPVY3R)
