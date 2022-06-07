@@ -880,6 +880,7 @@
 - [Dance Classics \(Cumulative\)](https://open.spotify.com/playlist/6IKSKLiJj6eKbX4pw7OX7K)
 - [Dance Covers \(Cumulative\)](https://open.spotify.com/playlist/0zTramhYGvimlHqX2SNvEm)
 - [Dance Duets \(Cumulative\)](https://open.spotify.com/playlist/55N7eexil0MrFE02LmjUsZ)
+- [Dance Favourites \(Cumulative\)](https://open.spotify.com/playlist/0P4nm4mYYeYKFUkoWAIWgc)
 - [Dance Hits \(Cumulative\)](https://open.spotify.com/playlist/4bKXpbCW98nhngOjZh3mfe)
 - [Dance Party \(Cumulative\)](https://open.spotify.com/playlist/5z9ZuI1502UpVCeJqJstIk)
 - [Dance Pop Hits \(Cumulative\)](https://open.spotify.com/playlist/1qshYoxyr9mriwE8obWHoK)
