@@ -4296,6 +4296,7 @@
 - [香港散步 \(Cumulative\)](https://open.spotify.com/playlist/40APne10sJapUUxupUCyA9)
 - [龍が如く \-Yakuza: Like a Dragon\- \(Cumulative\)](https://open.spotify.com/playlist/4ztLVpYM0zp9t21HvM8c7j)
 - [괜히 센치해 \(Cumulative\)](https://open.spotify.com/playlist/1dl38p2i56KbW8JfxsXigk)
+- [국내 R&B 메가 히트 \(Cumulative\)](https://open.spotify.com/playlist/65Hv4SNB2AgNDDopmquTMX)
 - [나 혼자 좋아해 \(Cumulative\)](https://open.spotify.com/playlist/1ePLnJPdYrdhAdDDYNy420)
 - [나의 우울은, \(Cumulative\)](https://open.spotify.com/playlist/1BjnPhemiZQgRsPsVy0WZP)
 - [뉴트로 댄스 뮤\-직 \(Cumulative\)](https://open.spotify.com/playlist/5TvEGY4L7IQ4l4nYERahnP)
