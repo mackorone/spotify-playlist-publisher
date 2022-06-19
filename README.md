@@ -1782,7 +1782,7 @@
 - [K\-Club Party \(Cumulative\)](https://open.spotify.com/playlist/0IIEvRANFzgYAa88SFKSJA)
 - [K\-Hip\-Hop +82 \(Cumulative\)](https://open.spotify.com/playlist/6eQCLyN2pb2xMxhClGC7H2)
 - [K\-Pop Acoustic \(Cumulative\)](https://open.spotify.com/playlist/6ycQZelJsg1QvKdkpuvD2Q)
-- [K\-Pop Ballad Hits \(Cumulative\)](https://open.spotify.com/playlist/50vXMaH1sm7s2jq2W5LswS)
+- [K\-Pop Ballad Hits \(발라드, 려요\) \(Cumulative\)](https://open.spotify.com/playlist/50vXMaH1sm7s2jq2W5LswS)
 - [K\-Pop Daebak Presents: Best K\-Pop Songs of 2O2O \(Cumulative\)](https://open.spotify.com/playlist/1vgxxlz4oe5ojdJ3LtAQT7)
 - [K\-Pop Duets \(Cumulative\)](https://open.spotify.com/playlist/3XvJZtxjOxsmcdtLvwdndV)
 - [K\-Pop Fresh \(Cumulative\)](https://open.spotify.com/playlist/7M2UzkWe0rrHEXaOnPr3Xw)
