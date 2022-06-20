@@ -34,14 +34,15 @@ class Spotify:
         async def wrapper(*args, **kwargs):  # pyre-fixme[2,3,53]
             while True:
                 response = await func(*args, **kwargs)
-                if response.status == 429:
+                status = response.status
+                if status == 429:
                     # Add an extra second, just to be safe
                     # https://stackoverflow.com/a/30557896/3176152
                     backoff_seconds = int(response.headers["Retry-After"]) + 1
                     reason = "Rate limited"
-                elif response.status in [500, 502, 504]:
+                elif status // 100 == 5:
                     backoff_seconds = 1
-                    reason = "Server error"
+                    reason = f"Server error ({status})"
                 else:
                     yield response
                     return
