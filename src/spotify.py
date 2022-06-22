@@ -39,7 +39,10 @@ class Spotify:
             while True:
                 try:
                     response = await func(*args, **kwargs)
-                except aiohttp.client_exceptions.ClientConnectionError:
+                except (
+                    aiohttp.client_exceptions.ClientConnectionError,
+                    asyncio.exceptions.TimeoutError,
+                ):
                     backoff_seconds = 1
                     reason = "Connection problem"
                 else:
