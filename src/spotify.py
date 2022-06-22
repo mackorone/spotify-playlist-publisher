@@ -13,6 +13,10 @@ from playlist_types import PublishedPlaylist, PublishedPlaylistID
 logger: logging.Logger = logging.getLogger(__name__)
 
 
+class RetryBudgetExceededError(Exception):
+    pass
+
+
 class Spotify:
 
     BASE_URL = "https://api.spotify.com/v1"
@@ -33,25 +37,30 @@ class Spotify:
         @asynccontextmanager
         async def wrapper(*args, **kwargs):  # pyre-fixme[2,3,53]
             while True:
-                response = await func(*args, **kwargs)
-                status = response.status
-                if status == 429:
-                    # Add an extra second, just to be safe
-                    # https://stackoverflow.com/a/30557896/3176152
-                    backoff_seconds = int(response.headers["Retry-After"]) + 1
-                    reason = "Rate limited"
-                elif status // 100 == 5:
+                try:
+                    response = await func(*args, **kwargs)
+                except aiohttp.client_exceptions.ClientConnectionError:
                     backoff_seconds = 1
-                    reason = f"Server error ({status})"
+                    reason = "Connection problem"
                 else:
-                    yield response
-                    return
+                    status = response.status
+                    if status == 429:
+                        # Add an extra second, just to be safe
+                        # https://stackoverflow.com/a/30557896/3176152
+                        backoff_seconds = int(response.headers["Retry-After"]) + 1
+                        reason = "Rate limited"
+                    elif status // 100 == 5:
+                        backoff_seconds = 1
+                        reason = f"Server error ({status})"
+                    else:
+                        yield response
+                        return
                 self._retry_budget_seconds -= backoff_seconds
                 if self._retry_budget_seconds <= 0:
-                    raise Exception("Retry budget exceeded")
+                    raise RetryBudgetExceededError("Retry budget exceeded")
                 else:
                     logger.warning(f"{reason}, will retry after {backoff_seconds}s")
-                    await asyncio.sleep(backoff_seconds)
+                    await self._sleep(backoff_seconds)
 
         return wrapper
 
@@ -59,7 +68,7 @@ class Spotify:
         await self._session.close()
         # Sleep to allow underlying connections to close
         # https://docs.aiohttp.org/en/stable/client_advanced.html#graceful-shutdown
-        await asyncio.sleep(0)
+        await self._sleep(0)
 
     async def get_published_playlists(
         self, at_most: Optional[int] = None
@@ -291,3 +300,8 @@ class Spotify:
         cls, headers: Optional[Mapping[str, str]] = None
     ) -> aiohttp.ClientSession:
         return aiohttp.ClientSession(headers=headers)
+
+    @classmethod
+    @external
+    async def _sleep(cls, seconds: float) -> None:
+        await asyncio.sleep(seconds)
