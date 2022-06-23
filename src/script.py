@@ -16,6 +16,7 @@ from typing import Dict, List, Mapping, Sequence, Set, Tuple
 from plants.committer import Committer
 from plants.environment import Environment
 from plants.external import allow_external_calls
+from plants.logging import configure_root_logger
 from plants.markdown import MarkdownEscapedString
 from playlist_types import (
     PublishedPlaylist,
@@ -25,7 +26,6 @@ from playlist_types import (
 )
 from spotify import Spotify
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 logger: logging.Logger = logging.getLogger(__name__)
 
 
@@ -441,5 +441,6 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
+    configure_root_logger()
     allow_external_calls()
     asyncio.run(main())
