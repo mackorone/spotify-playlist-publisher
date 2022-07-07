@@ -77,10 +77,18 @@ class Spotify:
         self, at_most: Optional[int] = None
     ) -> AsyncIterator[PublishedPlaylist]:
         playlist_ids = await self._get_playlist_ids(limit=at_most)
-        # To avoid rate limits, fetch playlists one at a time
-        for i, playlist_id in enumerate(playlist_ids):
-            logger.info(f"({i + 1} / {len(playlist_ids)}) Fetching playlist: {playlist_id}")
-            yield await self._get_playlist(playlist_id)
+        sorted_ids = sorted(playlist_ids)
+
+        # To avoid rate limits, fetch playlists in small batches
+        batch_size = 5
+        for i in range(0, len(sorted_ids), batch_size):
+            logger.info(f"Progress so far: {i} / {len(sorted_ids)}")
+            coros = []
+            for j in range(0, min(batch_size, len(sorted_ids) - i)):
+                coros.append(self._get_playlist(sorted_ids[i + j]))
+            results = await asyncio.gather(*coros)
+            for result in results:
+                yield result
 
     async def _get_playlist_ids(self, limit: Optional[int]) -> Set[PublishedPlaylistID]:
         playlist_ids: Set[PublishedPlaylistID] = set()
