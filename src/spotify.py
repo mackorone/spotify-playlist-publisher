@@ -80,7 +80,7 @@ class Spotify:
         sorted_ids = sorted(playlist_ids)
 
         # To avoid rate limits, fetch playlists in small batches
-        batch_size = 5
+        batch_size = 3
         for i in range(0, len(sorted_ids), batch_size):
             logger.info(f"Progress so far: {i} / {len(sorted_ids)}")
             coros = []
