@@ -127,10 +127,12 @@ async def publish(playlists_dir: pathlib.Path, prod: bool) -> None:
     assert client_id and client_secret and refresh_token
 
     # Initialize Spotify client
-    access_token = await Spotify.get_user_access_token(
-        client_id, client_secret, refresh_token
+    spotify = Spotify(
+        client_id=client_id,
+        client_secret=client_secret,
+        refresh_token=refresh_token,
+        retry_budget_seconds=300,
     )
-    spotify = Spotify(access_token)
     try:
         await publish_impl(spotify, playlists_dir, prod)
     finally:

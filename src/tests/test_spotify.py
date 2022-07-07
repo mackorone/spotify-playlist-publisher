@@ -12,21 +12,41 @@ from playlist_types import PublishedPlaylist, PublishedPlaylistID
 from spotify import RetryBudgetExceededError, Spotify
 
 
+class MockSession(AsyncMock):
+    @classmethod
+    async def create(cls) -> MockSession:
+        mock_session = MockSession()
+        await mock_session._init()
+        return mock_session
+
+    async def _init(self) -> None:
+        # AsyncMock objects beget other AsyncMock objects, but these methods
+        # are synchronous so we need initialize them explicitly
+        self.get = Mock(return_value=AsyncMock())
+        self.put = Mock(return_value=AsyncMock())
+        self.post = Mock(return_value=AsyncMock())
+        self.delete = Mock(return_value=AsyncMock())
+        # Allow MockSession objects to be used as async context managers
+        async with self as session:
+            session.get = self.get
+            session.put = self.put
+            session.post = self.post
+            session.delete = self.delete
+
+
 class SpotifyTestCase(IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
-        self.mock_session = AsyncMock()
-
-        # Retain references to the decorated functions
-        self.mock_get = self.mock_session.get
-        self.mock_put = self.mock_session.put
-        self.mock_post = self.mock_session.post
-        self.mock_delete = self.mock_session.delete
-
+        self.mock_session = await MockSession.create()
         self.mock_get_session = UnittestUtils.patch(
             self,
             "spotify.Spotify._get_session",
             # new_callable returns the replacement for get_session
             new_callable=lambda: Mock(return_value=self.mock_session),
+        )
+        self.mock_get_user_access_token = UnittestUtils.patch(
+            self,
+            "spotify.Spotify.get_user_access_token",
+            new_callable=AsyncMock,
         )
         self.mock_sleep = UnittestUtils.patch(
             self,
@@ -48,22 +68,41 @@ class TestGetPlaylist(SpotifyTestCase):
     # Patch the logger to suppress log spew
     @patch("spotify.logger")
     async def test_exception(self, mock_logger: Mock) -> None:
-        self.mock_session.get.side_effect = aiohttp.client_exceptions.ClientOSError
-        spotify = Spotify("token")
+        self.mock_session.get.return_value.__aenter__.side_effect = (
+            aiohttp.client_exceptions.ClientOSError
+        )
+        spotify = Spotify(
+            client_id="client_id",
+            client_secret="client_secret",
+            refresh_token="refresh_token",
+            retry_budget_seconds=10,
+        )
         with self.assertRaises(RetryBudgetExceededError):
             await spotify._get_playlist(PublishedPlaylistID("abc123"))
 
     async def test_failed_request(self) -> None:
-        self.mock_session.get.return_value.json.return_value = {"error": "error"}
-        spotify = Spotify("token")
+        self.mock_session.get.return_value.__aenter__.return_value.json.return_value = {
+            "error": "error"
+        }
+        spotify = Spotify(
+            client_id="client_id",
+            client_secret="client_secret",
+            refresh_token="refresh_token",
+            retry_budget_seconds=10,
+        )
         with self.assertRaises(Exception):
             await spotify._get_playlist(PublishedPlaylistID("abc123"))
 
     # Patch the logger to suppress log spew
     @patch("spotify.logger")
     async def test_server_unavailable(self, mock_logger: Mock) -> None:
-        self.mock_session.get.return_value.status = 500
-        spotify = Spotify("token")
+        self.mock_session.get.return_value.__aenter__.return_value.status = 500
+        spotify = Spotify(
+            client_id="client_id",
+            client_secret="client_secret",
+            refresh_token="refresh_token",
+            retry_budget_seconds=10,
+        )
         with self.assertRaises(RetryBudgetExceededError):
             await spotify._get_playlist(PublishedPlaylistID("abc123"))
 
@@ -73,16 +112,22 @@ class TestGetPlaylist(SpotifyTestCase):
         mock_responses = [
             AsyncMock(status=500),
             AsyncMock(
+                status=200,
                 json=AsyncMock(
                     return_value={
                         "name": "playlist_name",
                         "description": "playlist_description",
                     }
-                )
+                ),
             ),
         ]
-        self.mock_session.get.side_effect = mock_responses
-        spotify = Spotify("token")
+        self.mock_session.get.return_value.__aenter__.side_effect = mock_responses
+        spotify = Spotify(
+            client_id="client_id",
+            client_secret="client_secret",
+            refresh_token="refresh_token",
+            retry_budget_seconds=10,
+        )
         playlist_id = PublishedPlaylistID("playlist_id")
         playlist = await spotify._get_playlist(playlist_id)
         self.assertEqual(
@@ -94,7 +139,7 @@ class TestGetPlaylist(SpotifyTestCase):
                 track_ids={"track"},
             ),
         )
-        self.assertEqual(self.mock_get.call_count, 2)
+        self.assertEqual(self.mock_session.get.call_count, 2)
         self.mock_sleep.assert_called_once_with(1)
 
     # Patch the logger to suppress log spew
@@ -106,17 +151,23 @@ class TestGetPlaylist(SpotifyTestCase):
                 headers={"Retry-After": 4.2},
             ),
             AsyncMock(
+                status=200,
                 json=AsyncMock(
                     return_value={
                         "name": "playlist_name",
                         # Test URL escaping in playlist description
                         "description": "https:&#x2F;&#x2F;foo",
                     }
-                )
+                ),
             ),
         ]
-        self.mock_session.get.side_effect = mock_responses
-        spotify = Spotify("token")
+        self.mock_session.get.return_value.__aenter__.side_effect = mock_responses
+        spotify = Spotify(
+            client_id="client_id",
+            client_secret="client_secret",
+            refresh_token="refresh_token",
+            retry_budget_seconds=10,
+        )
         playlist_id = PublishedPlaylistID("playlist_id")
         playlist = await spotify._get_playlist(playlist_id)
         self.assertEqual(
@@ -128,13 +179,18 @@ class TestGetPlaylist(SpotifyTestCase):
                 track_ids={"track"},
             ),
         )
-        self.assertEqual(self.mock_get.call_count, 2)
+        self.assertEqual(self.mock_session.get.call_count, 2)
         self.mock_sleep.assert_called_once_with(5)
 
 
 class TestShutdown(SpotifyTestCase):
     async def test_success(self) -> None:
-        spotify = Spotify("token")
+        spotify = Spotify(
+            client_id="client_id",
+            client_secret="client_secret",
+            refresh_token="refresh_token",
+            retry_budget_seconds=10,
+        )
         await spotify.shutdown()
         self.mock_session.close.assert_called_once()
         self.mock_sleep.assert_called_once_with(0)
