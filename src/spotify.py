@@ -119,7 +119,7 @@ class Spotify:
         if error:
             raise Exception(f"Failed to get playlist: {error}")
         name = data["name"]
-        description = data["description"]
+        description = data["description"].replace("&#x2F;", "/")
         logger.info(f"Fetching playlist content: {name}")
         track_ids = await self._get_track_ids(playlist_id)
         logger.info(f"Done fetching playlist: {name}")

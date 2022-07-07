@@ -109,7 +109,8 @@ class TestGetPlaylist(SpotifyTestCase):
                 json=AsyncMock(
                     return_value={
                         "name": "playlist_name",
-                        "description": "playlist_description",
+                        # Test URL escaping in playlist description
+                        "description": "https:&#x2F;&#x2F;foo",
                     }
                 )
             ),
@@ -123,7 +124,7 @@ class TestGetPlaylist(SpotifyTestCase):
             PublishedPlaylist(
                 playlist_id=playlist_id,
                 name="playlist_name",
-                description="playlist_description",
+                description="https://foo",
                 track_ids={"track"},
             ),
         )
