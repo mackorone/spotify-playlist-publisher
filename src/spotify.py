@@ -78,7 +78,8 @@ class Spotify:
     ) -> AsyncIterator[PublishedPlaylist]:
         playlist_ids = await self._get_playlist_ids(limit=at_most)
         # To avoid rate limits, fetch playlists one at a time
-        for playlist_id in playlist_ids:
+        for i, playlist_id in enumerate(playlist_ids):
+            logger.info(f"({i + 1} / {len(playlist_ids)}) Fetching playlist: {playlist_id}")
             yield await self._get_playlist(playlist_id)
 
     async def _get_playlist_ids(self, limit: Optional[int]) -> Set[PublishedPlaylistID]:
@@ -111,9 +112,9 @@ class Spotify:
             raise Exception(f"Failed to get playlist: {error}")
         name = data["name"]
         description = data["description"]
-        logger.info(f"Fetching playlist from Spotify: {name}")
+        logger.info(f"Fetching playlist content: {name}")
         track_ids = await self._get_track_ids(playlist_id)
-        logger.info(f"Done fetching Spotify playlist: {name}")
+        logger.info(f"Done fetching playlist: {name}")
         return PublishedPlaylist(
             playlist_id=playlist_id,
             name=name,

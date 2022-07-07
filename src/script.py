@@ -16,7 +16,7 @@ from typing import Dict, List, Mapping, Sequence, Set, Tuple
 from plants.committer import Committer
 from plants.environment import Environment
 from plants.external import allow_external_calls
-from plants.logging import configure_root_logger
+from plants.logging import configure_logging
 from plants.markdown import MarkdownEscapedString
 from playlist_types import (
     PublishedPlaylist,
@@ -442,5 +442,5 @@ async def main() -> None:
 
 if __name__ == "__main__":
     allow_external_calls()
-    configure_root_logger()
+    configure_logging()
     asyncio.run(main())
