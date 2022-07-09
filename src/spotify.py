@@ -54,7 +54,7 @@ class ServerError(Exception):
     status: int
 
 
-class EmptyResponseError(Exception):
+class UnexpectedEmptyResponseError(Exception):
     pass
 
 
@@ -63,6 +63,11 @@ class HttpMethod(enum.Enum):
     PUT = enum.auto()
     POST = enum.auto()
     DELETE = enum.auto()
+
+
+class ResponseType(enum.Enum):
+    JSON = enum.auto()
+    EMPTY = enum.auto()
 
 
 class Spotify:
@@ -93,13 +98,9 @@ class Spotify:
         url: str,
         json: Optional[Mapping[str, Any]] = None,
         *,
-        max_spend_seconds: Optional[float] = None,
-        allow_error_in_response_body: bool = False,
+        expected_response_type: ResponseType = ResponseType.JSON,
+        raise_if_request_fails: bool = True,
     ) -> Dict[str, Any]:
-
-        if max_spend_seconds is None:
-            max_spend_seconds = self._retry_budget_seconds
-
         while True:
             # Lazily fetch access token
             if not self._access_token:
@@ -126,24 +127,19 @@ class Spotify:
                 headers={"Authorization": f"Bearer {self._access_token}"},
             )
 
+            # Make a retryable attempt
             try:
-                data = await self._send_request_and_coerce_errors(
+                return await self._send_request_and_coerce_errors(
                     aenter_to_send_request,
+                    expected_response_type,
+                    raise_if_request_fails,
                 )
-                error = data.get("error")
-                if error and not allow_error_in_response_body:
-                    raise RequestFailedError(error)
-                return data
-
             except RetryableError as e:
                 if e.refresh_access_token:
                     self._access_token = None
                 self._retry_budget_seconds -= e.sleep_seconds
                 if self._retry_budget_seconds <= 0:
                     raise RetryBudgetExceededError("Overall retry budget exceeded")
-                max_spend_seconds -= e.sleep_seconds
-                if max_spend_seconds <= 0:
-                    raise RetryBudgetExceededError("Request retry budget exceeded")
                 logger.warning(f"{e.message}, will retry after {e.sleep_seconds}s")
                 await self._sleep(e.sleep_seconds)
 
@@ -151,9 +147,16 @@ class Spotify:
     async def _send_request_and_coerce_errors(
         cls,
         aenter_to_send_request: contextlib.AbstractAsyncContextManager,
+        expected_response_type: ResponseType,
+        raise_if_request_fails: bool,
     ) -> Dict[str, Any]:
+        """Catch retryable errors and coerce them into uniform type"""
         try:
-            return await cls._send_request(aenter_to_send_request)
+            return await cls._send_request(
+                aenter_to_send_request,
+                expected_response_type,
+                raise_if_request_fails,
+            )
         except InvalidAccessTokenError:
             raise RetryableError(
                 message="Invalid access token",
@@ -170,7 +173,7 @@ class Spotify:
             raise RetryableError(f"Server error ({e.status})")
         except aiohttp.ContentTypeError:
             raise RetryableError("Invalid response (invalid JSON)")
-        except EmptyResponseError:
+        except UnexpectedEmptyResponseError:
             raise RetryableError("Invalid response (empty JSON)")
         except aiohttp.client_exceptions.ClientConnectionError:
             raise RetryableError("Connection problem")
@@ -181,9 +184,13 @@ class Spotify:
     async def _send_request(
         cls,
         aenter_to_send_request: contextlib.AbstractAsyncContextManager,
+        expected_response_type: ResponseType,
+        raise_if_request_fails: bool,
     ) -> Dict[str, Any]:
         async with aenter_to_send_request as response:
             status = response.status
+
+            # Straightforward retryable errors
             if status == 401:
                 raise InvalidAccessTokenError()
             if status == 429:
@@ -191,10 +198,25 @@ class Spotify:
                 raise RateLimitedError(retry_after=retry_after)
             if status >= 500:
                 raise ServerError(status=status)
-            data = await response.json()
-            if not data:
-                raise EmptyResponseError()
-            return data
+
+            # Sometimes Spotify just returns empty data
+            data = None
+            if expected_response_type == ResponseType.JSON:
+                data = await response.json()
+                if not data:
+                    raise UnexpectedEmptyResponseError()
+
+            # Handle unretryable error
+            if status >= 400 and raise_if_request_fails:
+                error = (data or {}).get("error") or {}
+                error_message = error.get("message")
+                raise RequestFailedError(f"{error_message} ({status})")
+
+            # Return data from "successful" request
+            if expected_response_type == ResponseType.JSON:
+                return data
+            assert expected_response_type == ResponseType.EMPTY
+            return {}
 
     async def shutdown(self) -> None:
         await self._session.close()
@@ -285,7 +307,11 @@ class Spotify:
 
     async def unsubscribe_from_playlist(self, playlist_id: PublishedPlaylistID) -> None:
         url = self.BASE_URL + f"/playlists/{playlist_id}/followers"
-        await self._make_retryable_request(method=HttpMethod.DELETE, url=url)
+        await self._make_retryable_request(
+            method=HttpMethod.DELETE,
+            url=url,
+            expected_response_type=ResponseType.EMPTY,
+        )
 
     async def change_playlist_details(
         self, playlist_id: PublishedPlaylistID, details_to_change: Mapping[str, str]
@@ -297,6 +323,7 @@ class Spotify:
             method=HttpMethod.PUT,
             url=self.BASE_URL + f"/playlists/{playlist_id}",
             json=details_to_change,
+            expected_response_type=ResponseType.EMPTY,
         )
 
     async def add_items(
@@ -312,7 +339,7 @@ class Spotify:
                 method=HttpMethod.POST,
                 url=self.BASE_URL + f"/playlists/{playlist_id}/tracks",
                 json={"uris": track_uris},
-                allow_error_in_response_body=True,
+                raise_if_request_fails=False,
             )
             error = data.get("error")
             if error:
