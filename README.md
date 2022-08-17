@@ -2663,6 +2663,7 @@
 - [Prog Jazz \(Cumulative\)](https://open.spotify.com/playlist/43Z6HObQV3nVWqyO3c383T)
 - [Prog Rock \(Cumulative\)](https://open.spotify.com/playlist/3ztjRpgCKn1hLb0zkDuLj3)
 - [Prog Rock Monsters \(Cumulative\)](https://open.spotify.com/playlist/2rdAvTDYuWVwQMDSQjVRa5)
+- [Progressive House Festival Hits 2022 ⭐️ \| Starlight \(Cumulative\)](https://open.spotify.com/playlist/1Hvu2MIsN55fb0PgQQ9jgu)
 - [Progressive Metal \(Cumulative\)](https://open.spotify.com/playlist/0wuVpBlHkf8BHNGS6SodaM)
 - [Prom Night \(Cumulative\)](https://open.spotify.com/playlist/4FtP5RvQJPbC1jgXNbQLM2)
 - [Psych & Groove \(Cumulative\)](https://open.spotify.com/playlist/3pt2XHEmoAsRNo2qzVm6m5)
