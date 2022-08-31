@@ -1920,6 +1920,7 @@
 - [K\-Pop X\-Overs \(Cumulative\)](https://open.spotify.com/playlist/0DIHYFEqLdrnfdqObi2sJD)
 - [K\-Trot Stars \(Cumulative\)](https://open.spotify.com/playlist/4095CD5XCukMZYOcr7Aaxg)
 - [K\-Webtoon OSTs \(웹툰 OSTs\) \(Cumulative\)](https://open.spotify.com/playlist/377FgqWa97oJx7N6DPIrtB)
+- [KENGAN ASHURA \-ケンガンアシュラ \- \(Cumulative\)](https://open.spotify.com/playlist/2rxmgpPODqNB3cMUVgn2dO)
 - [KING \(Cumulative\)](https://open.spotify.com/playlist/0m1IcfCFm82QcsYalwSCnT)
 - [K\`illin' \(Cumulative\)](https://open.spotify.com/playlist/37e0V6DcE1ud0J3RX3v2lN)
 - [Kaadhal Vali \(Cumulative\)](https://open.spotify.com/playlist/1QMVYWx8g4Nd9sYz08lg5x)
