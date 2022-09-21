@@ -4548,6 +4548,7 @@
 - [Winding Roads \(Cumulative\)](https://open.spotify.com/playlist/0Dpt39RuQHj9QExnYEB8yT)
 - [Wine & Dine \(Cumulative\)](https://open.spotify.com/playlist/3Oiyustir2EbcJWY5rmfYz)
 - [Winter Classical \(Cumulative\)](https://open.spotify.com/playlist/5MlyL0niBoGIZlqfgdhBBp)
+- [Witch House Nights \(Cumulative\)](https://open.spotify.com/playlist/7GmLUngY30Mk7b4UmT1aSK)
 - [With Love, A Changemaker \(Cumulative\)](https://open.spotify.com/playlist/6BnXBdKDTMGwzEjooL87Wj)
 - [With Love, A Storyteller \(Cumulative\)](https://open.spotify.com/playlist/4X8P9LnGazfERCLYmPSIas)
 - [With Love, An Artist \(Cumulative\)](https://open.spotify.com/playlist/296fYtGILQARBRnJgtSWYc)
