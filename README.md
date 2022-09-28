@@ -2174,6 +2174,7 @@
 - [Legendary Labels: Verve Records \(Cumulative\)](https://open.spotify.com/playlist/2XSJQmKN0XVobFlSqwXUgy)
 - [Legendary Women of Country \(Cumulative\)](https://open.spotify.com/playlist/1Tu1mArc6Ym1uHBqG7xX3z)
 - [Legends Only \(Cumulative\)](https://open.spotify.com/playlist/4sJNNOXti6LqdxGyE3CdfI)
+- [Lemon & Herb's DJ Mix \(Cumulative\)](https://open.spotify.com/playlist/6TSmrH37UmCZaX9uKvEACN)
 - [Lento\. \(Cumulative\)](https://open.spotify.com/playlist/5UZ4yz4Aj8Ad6VH6oZVjkF)
 - [Leonard Cohen: Covered \(Cumulative\)](https://open.spotify.com/playlist/7kKSsbzwq02y4ei5QnK9pz)
 - [Les beaux jours \(Cumulative\)](https://open.spotify.com/playlist/1hQIUdoAweSwm2MugCosGW)
