@@ -1177,6 +1177,7 @@
 - [Dos Íconos: Shakira x Alejandro Sanz \(Cumulative\)](https://open.spotify.com/playlist/6mYuqeCD0z3bCRGzsxg0t1)
 - [Dos íconos: Daddy Yankee x Nicky Jam \(Cumulative\)](https://open.spotify.com/playlist/2iNy939SfL8nLUv0oj5dNy)
 - [Dose Trap \(Cumulative\)](https://open.spotify.com/playlist/4OQp0dXIgEe6I8MlQwrCOG)
+- [Down In The Dumps \(Cumulative\)](https://open.spotify.com/playlist/7M6I5jHP2Edul6Yanc4DUw)
 - [Dramatic Classical \(Cumulative\)](https://open.spotify.com/playlist/71WRw0MM3YEJmGCbYcXscu)
 - [Dreamcatcher \(Cumulative\)](https://open.spotify.com/playlist/2YuyGqS2qv274A4WR1Hchl)
 - [Dreampop \(Cumulative\)](https://open.spotify.com/playlist/2EQALS83E7BvUY2kshwRg7)
