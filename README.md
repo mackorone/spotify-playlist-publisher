@@ -3522,6 +3522,7 @@
 - [Swing Revival \(Cumulative\)](https://open.spotify.com/playlist/1pXDxBqf1ztgvsKdIRffGC)
 - [Swing in the New Year \(Cumulative\)](https://open.spotify.com/playlist/0Uj0CBNdsgQ9ypxOZGHNYD)
 - [Sword Art Online \-ソードアート・オンライン\- \(Cumulative\)](https://open.spotify.com/playlist/0PzANGEQ6UOUzOy4YIBJAY)
+- [Symphogear 戦姫絶唱シンフォギア \(Cumulative\)](https://open.spotify.com/playlist/1KjOcTBVr824LaVF6eI116)
 - [Symphony of the Winds \(Cumulative\)](https://open.spotify.com/playlist/5nVbCcudyOZFYZmNkRxuDa)
 - [Synthpop Classics  \(Cumulative\)](https://open.spotify.com/playlist/7sgvvjtQ3YO0vLBx6zL4uM)
 - [Synthwave \| Retro \| 80s Vaporwave \(Cumulative\)](https://open.spotify.com/playlist/6Ue29HB0gI4bMizHZxTapf)
