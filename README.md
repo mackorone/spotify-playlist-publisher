@@ -1,3 +1,42 @@
+# :pushpin: API Key Disabled
+
+On October 4th, 2022, I received the following email from developer-platform@spotify.com:
+
+> Dear spotify-playlist-publisher team,
+>
+> You are receiving this email because you are the listed owner of spotify-playlist-publisher with client ID [REDACTED], an integration using the Spotify WebAPI. 
+>
+> As part of the continuous evaluation of applications on our platform, we review applications using the Spotify WebAPI from time to time.
+>
+> After reviewing your application, we have found that it is in breach of our terms and conditions due to the following reasons:
+>
+>> You may not use the Spotify WebAPI in ways that are not permitted according to our terms. Do not improperly access, alter or store the Spotify Service or Spotify Content, including using any robot, spider, site search/retrieval application, or other tool to retrieve, duplicate, or index any portion of the Spotify Service or Spotify Content (which includes playlist data).
+>
+> We will be disabling your API key, which will prevent your application from accessing the Spotify developer platform.
+>
+> If you think that the app review team made a mistake then you can ask us to take another look. Do so by replying to this email including a detailed explanation of the reason for your appeal. 
+>
+> Thank you, 
+>
+> Developer Platform Team
+
+In short, Spotify does not want me to maintain cumulative copies of their playlists. It's a shame, but I get it. It's against their terms of service, it sets a bad precedent, and they probably don't want me siphoning off listeners from their source-of-truth playlists, especially under the name, "Spotify Playlist Archive," which could be construed as impersonation, malicious or not.
+
+I do not intend to appeal this decision because:
+1. I am clearly in the wrong; this project clearly violates Spotify's terms of service.
+1. I don't want to risk drawing attention to [mackorone/spotify-playlist-archive](https://github.com/mackorone/spotify-playlist-archive), the project that motivated this one and the far more important of the two, and one which also flouts Spotify's terms of service. (That said, the altruistic nature of *that* project is a bit more obvious and would hopefully be met with sympathy from Spotify.)
+1. The service provided by this project - automatically updated cumulative versions of Spotify's playlists - is not critical to the main project's success. Users can still create point-in-time cumulative versions of their favorite playlists using data from the archive. Each person creating their own copies is ultimately wasteful and unnecessary, but alas, here we are.
+
+For as long as Spotify permits, I will leave the existing published cumulative playlists as-is. That way, listeners won't be affected by the shutting down of this project. However, I will remove all references to these cumulative playlists from the main project - the archive - and I will archive this repository to make it abundantly clear that this project is, in fact, dead.
+
+Lastly, thank you to the folks who contributed to this project:
+- To [@natejlong](https://github.com/natejlong) for the [idea](https://github.com/mackorone/spotify-playlist-archive/issues/23)
+- To [@Prillan](https://github.com/Prillan) for the [implementation](https://github.com/mackorone/spotify-playlist-archive/pull/90)
+
+<details>
+<summary><h4>Click to view original README.md</h4></summary>
+
+
 # spotify-playlist-publisher [![](https://github.com/mackorone/spotify-playlist-publisher/actions/workflows/main.yml/badge.svg)](https://github.com/mackorone/spotify-playlist-publisher/actions/workflows/main.yml)
 
 > Publish playlists to Spotify
